@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inspecteur CSV</title>
+<style>
+:root {
+  --bg: #0f1218;
+  --panel: #161b24;
+  --panel-2: #1c2330;
+  --line: #2a3342;
+  --line-soft: #222a37;
+  --text: #e6e9ef;
+  --muted: #8b95a7;
+  --accent: #6aa9ff;
+  --accent-soft: rgba(106,169,255,.14);
+  --err: #ff6b6b;
+  --err-bg: rgba(255,107,107,.16);
+  --warn: #f5b041;
+  --warn-bg: rgba(245,176,65,.15);
+  --info: #5dade2;
+  --info-bg: rgba(93,173,226,.13);
+  --ok: #58d68d;
+  --ok-bg: rgba(88,214,141,.14);
+  --zebra: rgba(255,255,255,.025);
+  --colhl: rgba(106,169,255,.10);
+  --rowhl: rgba(106,169,255,.08);
+  --mono: ui-monospace, "Cascadia Mono", "JetBrains Mono", Consolas, "Liberation Mono", monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f4f6fa; --panel: #ffffff; --panel-2: #f0f3f8; --line: #d8dee8; --line-soft: #e6eaf1;
+    --text: #1d2330; --muted: #5f6b7f; --accent: #2f6fdb; --accent-soft: rgba(47,111,219,.10);
+    --err: #d63c3c; --err-bg: rgba(214,60,60,.12); --warn: #c77c02; --warn-bg: rgba(230,150,20,.15);
+    --info: #1f7fbf; --info-bg: rgba(31,127,191,.10); --ok: #1e9e57; --ok-bg: rgba(30,158,87,.12);
+    --zebra: rgba(0,0,0,.022); --colhl: rgba(47,111,219,.08); --rowhl: rgba(47,111,219,.06);
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; }
+button, select, input { font: inherit; color: inherit; }
+header.top {
+  display: flex; align-items: center; gap: 16px; padding: 14px 24px;
+  border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 30;
+}
+header.top h1 { font-size: 17px; margin: 0; font-weight: 650; letter-spacing: .2px; }
+header.top h1 span { color: var(--accent); }
+header.top .file { color: var(--muted); font-family: var(--mono); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+header.top .spacer { flex: 1; }
+.btn {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px;
+  cursor: pointer; white-space: nowrap; transition: border-color .15s, background .15s;
+}
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { filter: brightness(1.08); }
+main { padding: 20px 24px 60px; max-width: 100%; }
+
+/* Dropzone */
+#drop {
+  margin: 40px auto; max-width: 720px; border: 2px dashed var(--line); border-radius: 16px;
+  padding: 56px 32px; text-align: center; background: var(--panel); transition: border-color .15s, background .15s;
+}
+#drop.over { border-color: var(--accent); background: var(--accent-soft); }
+#drop .big { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+#drop p { color: var(--muted); margin: 6px 0 22px; line-height: 1.5; }
+#drop .actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+/* Summary */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+.card .k { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 6px; }
+.card .v { font-size: 17px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card .s { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.card.err { border-color: var(--err); box-shadow: inset 3px 0 0 var(--err); }
+.card.warn { border-color: var(--warn); box-shadow: inset 3px 0 0 var(--warn); }
+.card.ok { box-shadow: inset 3px 0 0 var(--ok); }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; margin-right: 4px; }
+.pill.error { background: var(--err-bg); color: var(--err); }
+.pill.warning { background: var(--warn-bg); color: var(--warn); }
+.pill.info { background: var(--info-bg); color: var(--info); }
+.pill.ok { background: var(--ok-bg); color: var(--ok); }
+
+/* Toolbar */
+.toolbar {
+  display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; margin-bottom: 16px;
+}
+.toolbar label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+.toolbar select, .toolbar input[type=search] {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; color: var(--text);
+}
+.toolbar input[type=search] { width: 200px; }
+.toolbar .sep { width: 1px; align-self: stretch; background: var(--line); }
+
+/* Issues */
+details.issues { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 16px; }
+details.issues > summary {
+  cursor: pointer; padding: 12px 16px; font-weight: 650; list-style: none; display: flex; align-items: center; gap: 10px;
+}
+details.issues > summary::-webkit-details-marker { display: none; }
+details.issues > summary::before { content: "▸"; color: var(--muted); transition: transform .15s; }
+details.issues[open] > summary::before { transform: rotate(90deg); }
+.issue-list { padding: 0 12px 12px; display: grid; gap: 8px; max-height: 46vh; overflow: auto; }
+.issue { border: 1px solid var(--line-soft); border-left: 4px solid var(--info); border-radius: 8px; padding: 9px 12px; background: var(--panel-2); }
+.issue.error { border-left-color: var(--err); }
+.issue.warning { border-left-color: var(--warn); }
+.issue .head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.issue .title { font-weight: 600; }
+.issue .count { color: var(--muted); font-size: 12px; }
+.issue .hint { color: var(--muted); font-size: 12.5px; margin-top: 3px; line-height: 1.45; }
+.issue .detail { font-size: 12.5px; margin-top: 3px; font-family: var(--mono); }
+.locs { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.loc {
+  font-family: var(--mono); font-size: 11.5px; border: 1px solid var(--line); background: var(--panel);
+  padding: 1px 7px; border-radius: 6px; cursor: pointer;
+}
+.loc:hover { border-color: var(--accent); color: var(--accent); }
+.no-issue { padding: 4px 16px 16px; color: var(--ok); }
+
+/* Grid */
+.grid-wrap {
+  border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
+  overflow: auto; max-height: calc(100vh - 150px); position: relative;
+}
+table.grid { border-collapse: separate; border-spacing: 0; font-family: var(--mono); font-size: 13px; min-width: 100%; }
+table.grid th, table.grid td {
+  white-space: pre; padding: 5px 12px; border-right: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft);
+  vertical-align: top; text-align: left; line-height: 1.45;
+}
+table.grid thead th {
+  position: sticky; top: 0; z-index: 5; background: var(--panel-2); border-bottom: 2px solid var(--line);
+  font-family: var(--sans); vertical-align: bottom; padding-top: 8px; padding-bottom: 8px; white-space: nowrap;
+}
+table.grid th .letter { font-family: var(--mono); font-size: 10.5px; color: var(--muted); letter-spacing: .5px; }
+table.grid th .name { font-weight: 650; font-size: 13px; white-space: pre; }
+table.grid th .meta { display: flex; gap: 6px; margin-top: 4px; font-weight: 400; font-size: 11px; color: var(--muted); align-items: center; }
+table.grid th .type { padding: 0 6px; border-radius: 5px; background: var(--accent-soft); color: var(--accent); font-family: var(--mono); font-size: 10.5px; }
+table.grid th .fill { width: 38px; height: 4px; background: var(--line); border-radius: 3px; overflow: hidden; display: inline-block; }
+table.grid th .fill i { display: block; height: 100%; background: var(--ok); }
+table.grid th.extra { background: linear-gradient(var(--err-bg), var(--err-bg)), var(--panel-2); color: var(--err); }
+table.grid th.bad-h { box-shadow: inset 0 -3px 0 var(--err); }
+table.grid .rn {
+  position: sticky; left: 0; z-index: 3; background: var(--panel-2); color: var(--muted); text-align: right;
+  font-size: 12px; min-width: 56px; border-right: 2px solid var(--line); cursor: default; user-select: none;
+}
+table.grid thead .rn { z-index: 7; }
+table.grid td.rn .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+table.grid tbody tr:nth-child(even) td:not(.rn) { background-image: linear-gradient(var(--zebra), var(--zebra)); }
+table.grid tbody tr:hover td { box-shadow: inset 0 0 0 9999px var(--rowhl); }
+table.grid td.num { text-align: right; }
+table.grid td { cursor: pointer; }
+table.grid td.c-error { background-color: var(--err-bg); }
+table.grid td.c-warning { background-color: var(--warn-bg); }
+table.grid td.c-info { background-color: var(--info-bg); }
+table.grid td.missing {
+  color: var(--err); font-style: italic; font-family: var(--sans); font-size: 11.5px;
+  background: repeating-linear-gradient(135deg, var(--err-bg) 0 6px, transparent 6px 12px);
+}
+table.grid td.extra { background-color: var(--err-bg); }
+table.grid td.empty-cell::after { content: "∅"; color: var(--line); }
+table.grid tr.r-error td.rn { box-shadow: inset 3px 0 0 var(--err); }
+table.grid tr.r-warning td.rn { box-shadow: inset 3px 0 0 var(--warn); }
+table.grid tr.r-info td.rn { box-shadow: inset 3px 0 0 var(--info); }
+table.grid tr.emptyline td { color: var(--muted); font-style: italic; font-family: var(--sans); font-size: 12px; }
+table.grid td.sel { outline: 2px solid var(--accent); outline-offset: -2px; }
+@keyframes flash { 0%,40% { box-shadow: inset 0 0 0 9999px rgba(106,169,255,.45); } 100% { box-shadow: none; } }
+.flash td, td.flash { animation: flash 1.6s ease-out; }
+.ws { color: var(--muted); opacity: .75; }
+.ws-edge { background: var(--warn-bg); color: var(--warn); border-radius: 2px; }
+.bad { background: var(--err); color: #fff; border-radius: 3px; padding: 0 2px; font-size: 11px; }
+.more { padding: 12px; text-align: center; color: var(--muted); }
+.empty-state { padding: 30px; text-align: center; color: var(--muted); }
+
+/* Inspector */
+#insp {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 100vw); background: var(--panel);
+  border-left: 1px solid var(--line); box-shadow: -12px 0 40px rgba(0,0,0,.25); z-index: 50;
+  transform: translateX(105%); transition: transform .2s ease; display: flex; flex-direction: column;
+}
+#insp.open { transform: none; }
+#insp .ih { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+#insp .ih h2 { font-size: 15px; margin: 0; flex: 1; }
+#insp .ib { padding: 14px 16px; overflow: auto; flex: 1; }
+#insp h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin: 18px 0 8px; }
+#insp h3:first-child { margin-top: 0; }
+.valbox { font-family: var(--mono); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px; white-space: pre-wrap; word-break: break-all; }
+.raw { font-family: var(--mono); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px; white-space: pre-wrap; word-break: break-all; line-height: 1.7; }
+.raw .dl { background: var(--accent); color: #fff; border-radius: 3px; padding: 0 3px; font-weight: 700; }
+.raw .dl.over { background: var(--err); }
+.raw .fi { border-bottom: 2px solid transparent; }
+.raw .fi.cur { border-bottom-color: var(--accent); background: var(--accent-soft); }
+table.chars { border-collapse: collapse; font-family: var(--mono); font-size: 12px; width: 100%; }
+table.chars th, table.chars td { border-bottom: 1px solid var(--line-soft); padding: 3px 6px; text-align: left; }
+table.chars th { color: var(--muted); font-weight: 500; font-family: var(--sans); font-size: 11px; }
+table.chars tr.nonansi td { color: var(--err); }
+table.chars tr.nonascii td:first-child { font-weight: 700; }
+.kv { display: grid; grid-template-columns: 120px 1fr; gap: 4px 10px; font-size: 13px; }
+.kv div:nth-child(odd) { color: var(--muted); }
+.ilist .issue { margin-bottom: 6px; }
+.toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--panel-2); border: 1px solid var(--line);
+  padding: 10px 16px; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,.3); z-index: 60; transition: opacity .3s;
+}
+.hidden { display: none !important; }
+kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Inspecteur <span>CSV</span></h1>
+  <div class="file" id="fileLabel"></div>
+  <div class="spacer"></div>
+  <button class="btn" id="btnDemo">Exemple</button>
+  <button class="btn primary" id="btnOpen">Ouvrir un CSV…</button>
+  <input type="file" id="fileInput" accept=".csv,.txt,.tsv,text/csv,text/plain" class="hidden">
+</header>
+
+<main>
+  <section id="drop">
+    <div class="big">Déposez un fichier CSV ici</div>
+    <p>La ligne 1 est lue comme l'en-tête, les suivantes comme les données.<br>
+       Le fichier est analysé localement dans le navigateur (rien n'est envoyé).<br>
+       Encodage, séparateurs en trop, colonnes décalées, accents cassés, espaces invisibles… tout est listé.</p>
+    <div class="actions">
+      <button class="btn primary" id="btnOpen2">Choisir un fichier…</button>
+      <button class="btn" id="btnDemo2">Charger un exemple avec erreurs</button>
+    </div>
+  </section>
+
+  <section id="view" class="hidden">
+    <div class="cards" id="cards"></div>
+
+    <div class="toolbar">
+      <label>Encodage attendu
+        <select id="selExpected">
+          <option value="ansi">ANSI (Windows-1252)</option>
+          <option value="utf8">UTF-8</option>
+        </select>
+      </label>
+      <label>Lire comme
+        <select id="selEnc">
+          <option value="auto">Auto</option>
+          <option value="windows-1252">ANSI (Windows-1252)</option>
+          <option value="utf-8">UTF-8</option>
+          <option value="utf-16le">UTF-16 LE</option>
+          <option value="utf-16be">UTF-16 BE</option>
+        </select>
+      </label>
+      <label>Séparateur
+        <select id="selDelim">
+          <option value="auto">Auto</option>
+          <option value=";">;  point-virgule</option>
+          <option value=",">,  virgule</option>
+          <option value="\t">⇥  tabulation</option>
+          <option value="|">|  barre</option>
+        </select>
+      </label>
+      <span class="sep"></span>
+      <label><input type="search" id="search" placeholder="Rechercher…"></label>
+      <label><input type="checkbox" id="chkIssues"> Lignes en anomalie uniquement</label>
+      <label><input type="checkbox" id="chkInvis"> Afficher les espaces</label>
+      <span class="sep"></span>
+      <button class="btn" id="btnExpAnsi" title="Ré-encode le fichier en Windows-1252">Exporter en ANSI</button>
+      <button class="btn" id="btnExpUtf8" title="Ré-encode le fichier en UTF-8 avec BOM">Exporter en UTF-8</button>
+      <label title="Convertit toutes les fins de ligne en CRLF (Windows) lors de l'export"><input type="checkbox" id="chkCrlf" checked> CRLF à l'export</label>
+    </div>
+
+    <details class="issues" id="issuesBox" open>
+      <summary id="issuesSummary">Anomalies</summary>
+      <div id="issues"></div>
+    </details>
+
+    <div class="grid-wrap" id="gridWrap"></div>
+  </section>
+</main>
+
+<aside id="insp">
+  <div class="ih"><h2 id="inspTitle">Détail</h2><button class="btn" id="inspClose">Fermer <kbd>Échap</kbd></button></div>
+  <div class="ib" id="inspBody"></div>
+</aside>
+
+<style id="colHlStyle"></style>
+
+<script>
+"use strict";
+
+/* ---------------------------------------------------------------------------
+ * Tables d'encodage
+ * ------------------------------------------------------------------------- */
+const CP1252 = (() => {
+  const dec = new TextDecoder("windows-1252");
+  const m = new Map();
+  for (let b = 0; b < 256; b++) {
+    const ch = dec.decode(new Uint8Array([b]));
+    if (!m.has(ch)) m.set(ch, b);
+  }
+  return m;
+})();
+const CP1252_UNDEFINED = new Set([0x81, 0x8D, 0x8F, 0x90, 0x9D]);
+const isAnsiChar = ch => CP1252.has(ch);
+
+function encodeAnsi(str) {
+  const out = [];
+  let lost = 0;
+  for (const ch of str) {
+    const b = CP1252.get(ch);
+    if (b === undefined) { out.push(0x3F); lost++; } else out.push(b);
+  }
+  return { bytes: new Uint8Array(out), lost };
+}
+
+/* ---------------------------------------------------------------------------
+ * Définition des anomalies
+ * ------------------------------------------------------------------------- */
+const DEFS = {
+  // Encodage
+  "enc-utf8":        { sev: "warning", t: "Fichier encodé en UTF-8 (sans BOM) au lieu d'ANSI",
+                       h: "Un logiciel qui lit en ANSI affichera « Ã© » à la place de « é ». Utilisez « Exporter en ANSI » pour convertir." },
+  "enc-utf8-bom":    { sev: "warning", t: "Fichier encodé en UTF-8 avec BOM au lieu d'ANSI",
+                       h: "Le BOM (octets EF BB BF) en début de fichier apparaît souvent comme « ï»¿ » collé au premier nom de colonne dans les outils ANSI." },
+  "enc-utf16":       { sev: "error",   t: "Fichier encodé en UTF-16",
+                       h: "La plupart des traitements CSV (imports, scripts) ne lisent pas l'UTF-16. Convertissez en ANSI ou UTF-8." },
+  "enc-utf16-nobom": { sev: "error",   t: "Fichier probablement en UTF-16 sans BOM (octets nuls détectés)",
+                       h: "Beaucoup d'octets 00 : typique d'un export Unicode d'Excel. Le fichier a été relu en UTF-16." },
+  "enc-mixed":       { sev: "error",   t: "Encodage mixte : lignes ANSI et lignes UTF-8 dans le même fichier",
+                       h: "Probablement une concaténation de fichiers ou une ligne ajoutée à la main. Les lignes signalées contiennent des séquences UTF-8, le reste est en ANSI." },
+  "enc-ansi":        { sev: "warning", t: "Fichier encodé en ANSI (Windows-1252) au lieu d'UTF-8",
+                       h: "Utilisez « Exporter en UTF-8 » pour convertir." },
+  "enc-ansi-ok":     { sev: "info",    t: "Encodage ANSI (Windows-1252) — conforme", h: "" },
+  "enc-utf8-ok":     { sev: "info",    t: "Encodage UTF-8 — conforme", h: "" },
+  "enc-ascii":       { sev: "info",    t: "Fichier 100 % ASCII (aucun caractère accentué)",
+                       h: "Compatible à la fois ANSI et UTF-8 : aucun risque de conversion." },
+  "enc-undef":       { sev: "error",   t: "Octets non définis en Windows-1252 (81, 8D, 8F, 90, 9D)",
+                       h: "Ces octets n'ont pas de caractère en ANSI : fichier corrompu ou dans un autre encodage (ex. IBM850/OEM)." },
+  "enc-forced":      { sev: "info",    t: "Encodage de lecture forcé manuellement", h: "La détection automatique est ignorée." },
+  // Fins de ligne
+  "eol-mixed":       { sev: "warning", t: "Fins de ligne mixtes (CRLF / LF / CR)",
+                       h: "Le fichier mélange plusieurs types de retours à la ligne, souvent signe d'une édition manuelle ou d'une concaténation." },
+  "eol-lf":          { sev: "info",    t: "Fins de ligne Unix (LF) au lieu de Windows (CRLF)",
+                       h: "Certains outils Windows attendent CRLF. Cochez « CRLF à l'export » et exportez pour normaliser." },
+  "eol-cr":          { sev: "warning", t: "Fins de ligne Mac classique (CR seul)",
+                       h: "Format rarement supporté : beaucoup d'outils verront tout le fichier sur une seule ligne." },
+  "no-final-eol":    { sev: "info",    t: "Pas de retour à la ligne après la dernière ligne",
+                       h: "Certains imports ignorent ou tronquent la dernière ligne si elle n'est pas terminée." },
+  // Structure
+  "delim-guess":     { sev: "info",    t: "Séparateur détecté avec une confiance faible", h: "Vérifiez le séparateur dans la barre d'outils." },
+  "no-data":         { sev: "error",   t: "Aucune ligne de données", h: "Le fichier ne contient que l'en-tête (ou est vide)." },
+  "header-empty":    { sev: "error",   t: "Nom de colonne vide dans l'en-tête", h: "Une colonne n'a pas de nom : séparateur doublé « ;; » dans l'en-tête ?" },
+  "header-dup":      { sev: "error",   t: "Nom de colonne en double", h: "Deux colonnes portent le même nom (comparaison sans casse ni espaces)." },
+  "header-ws":       { sev: "warning", t: "Espaces autour d'un nom de colonne", h: "« Montant » et « Montant␣ » ne sont pas la même colonne pour un import." },
+  "header-numeric":  { sev: "info",    t: "L'en-tête ressemble à des données", h: "Des noms de colonne sont purement numériques ou des dates : la ligne 1 est-elle vraiment un en-tête ?" },
+  "header-trailing": { sev: "warning", t: "Séparateur en trop à la fin de l'en-tête", h: "L'en-tête se termine par un séparateur : cela crée une colonne vide sans nom." },
+  "trailing-delim":  { sev: "warning", t: "Séparateur en trop en fin de ligne",
+                       h: "La ligne a plus de séparateurs que l'en-tête, mais les cellules en trop sont vides (ex. « ...;123; »)." },
+  "too-many-cols":   { sev: "error",   t: "Colonnes en trop (données décalées)",
+                       h: "La ligne contient plus de valeurs que l'en-tête : un séparateur dans une valeur non protégée par des guillemets ? Les colonnes suivantes sont décalées." },
+  "too-few-cols":    { sev: "error",   t: "Colonnes manquantes",
+                       h: "La ligne contient moins de valeurs que l'en-tête : séparateur oublié ou ligne coupée." },
+  "empty-line":      { sev: "warning", t: "Ligne vide au milieu du fichier", h: "Les lignes vides peuvent être importées comme un enregistrement vide ou faire échouer l'import." },
+  "eof-empty":       { sev: "info",    t: "Ligne(s) vide(s) en fin de fichier", h: "" },
+  "only-delims":     { sev: "warning", t: "Ligne ne contenant que des séparateurs", h: "Ligne du type « ;;;; » : enregistrement entièrement vide." },
+  "dup-row":         { sev: "warning", t: "Ligne en double", h: "Ligne strictement identique à une ligne précédente." },
+  "empty-col":       { sev: "warning", t: "Colonne entièrement vide", h: "Aucune ligne de données ne renseigne cette colonne." },
+  // Guillemets
+  "unclosed-quote":  { sev: "error",   t: "Guillemet ouvrant jamais refermé",
+                       h: "Tout le reste du fichier à partir de cette ligne a été absorbé dans une seule cellule." },
+  "stray-quote":     { sev: "warning", t: "Guillemet isolé dans une valeur non protégée", h: "Ex. « 12\" pouces ». Selon l'outil, cela peut ouvrir une zone entre guillemets et décaler tout le fichier." },
+  "quote-garbage":   { sev: "error",   t: "Texte après un guillemet fermant", h: "Ex. « \"abc\"def ». Le guillemet doit être doublé (\"\") à l'intérieur d'une valeur." },
+  // Contenu des cellules
+  "mojibake":        { sev: "error",   t: "Accents cassés (double encodage « Ã© », « â€™ »…)",
+                       h: "Du texte UTF-8 a été lu comme de l'ANSI puis ré-enregistré. « Ã© » = é, « Ã¨ » = è, « Ã  » = à, « â€™ » = ’." },
+  "replacement":     { sev: "error",   t: "Caractère de remplacement « � »", h: "Un caractère a été perdu lors d'une conversion d'encodage antérieure." },
+  "question-mark":   { sev: "warning", t: "« ? » au milieu d'un mot", h: "Souvent un caractère accentué perdu lors d'une conversion vers ANSI (ex. « caf? »)." },
+  "not-ansi":        { sev: "warning", t: "Caractère non convertible en ANSI",
+                       h: "Ce caractère n'existe pas en Windows-1252 : il deviendra « ? » lors d'une conversion en ANSI." },
+  "ws-edge":         { sev: "warning", t: "Espace(s) au début ou à la fin d'une valeur", h: "Invisible à l'œil mais « ABC » ≠ « ABC␣ » pour une comparaison ou une jointure." },
+  "double-space":    { sev: "info",    t: "Espaces multiples consécutifs dans une valeur", h: "" },
+  "nbsp":            { sev: "warning", t: "Espace insécable (U+00A0 / U+202F)", h: "Ressemble à un espace mais n'en est pas un : casse les conversions de nombres (« 1 234,56 ») et les comparaisons." },
+  "zero-width":      { sev: "error",   t: "Caractère invisible (largeur nulle ou BOM au milieu du texte)", h: "U+200B, U+FEFF… totalement invisible, fait échouer les comparaisons." },
+  "control":         { sev: "error",   t: "Caractère de contrôle (NUL, BEL, ESC…)", h: "Caractère non imprimable : fichier corrompu ou binaire." },
+  "c1-control":      { sev: "error",   t: "Caractère de contrôle C1 (U+0080–U+009F)", h: "Typique d'un octet non défini en Windows-1252 ou d'une mauvaise conversion Latin-1 ↔ UTF-8." },
+  "tab-in-cell":     { sev: "warning", t: "Tabulation dans une valeur", h: "" },
+  "multiline":       { sev: "info",    t: "Retour à la ligne à l'intérieur d'une valeur", h: "Valeur multi-ligne (entre guillemets) : valide en CSV mais mal supportée par de nombreux outils." },
+  "formula":         { sev: "info",    t: "Valeur commençant par = + - @", h: "Excel peut l'interpréter comme une formule (risque d'injection CSV)." },
+  "sci":             { sev: "warning", t: "Nombre en notation scientifique (1,23E+11)", h: "Typique d'un fichier ré-enregistré par Excel : les chiffres au-delà de 15 sont perdus (IBAN, codes, n° de carte…)." },
+  "long-cell":       { sev: "info",    t: "Valeur très longue (> 255 caractères)", h: "Certains imports tronquent à 255 caractères." },
+  "type-mismatch":   { sev: "warning", t: "Valeur atypique pour la colonne", h: "Le type ne correspond pas au type dominant de la colonne (ex. texte dans une colonne numérique)." },
+  "mixed-decimal":   { sev: "warning", t: "Séparateur décimal incohérent dans la colonne", h: "La colonne mélange « 12,50 » et « 12.50 »." },
+  "mixed-date":      { sev: "warning", t: "Formats de date incohérents dans la colonne", h: "La colonne mélange plusieurs formats (JJ/MM/AAAA, AAAA-MM-JJ…)." },
+  "invalid-date":    { sev: "error",   t: "Date invalide", h: "Jour ou mois hors limites (ex. 31/02 ou mois 13)." },
+  "empty-in-full":   { sev: "info",    t: "Cellule vide dans une colonne presque toujours renseignée", h: "" },
+};
+const SEV_RANK = { error: 3, warning: 2, info: 1 };
+const SEV_LABEL = { error: "Erreur", warning: "Alerte", info: "Info" };
+
+/* ---------------------------------------------------------------------------
+ * État
+ * ------------------------------------------------------------------------- */
+const state = {
+  bytes: null, fileName: "",
+  expected: "ansi", encOverride: "auto", delimOverride: "auto",
+  search: "", onlyIssues: false, showInvis: false,
+  limit: 1000, res: null, sel: null,
+};
+
+const $ = id => document.getElementById(id);
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const hex = (n, w = 2) => n.toString(16).toUpperCase().padStart(w, "0");
+const colLetter = i => { let s = ""; i++; while (i > 0) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
+const fmtSize = n => n < 1024 ? n + " o" : n < 1048576 ? (n / 1024).toFixed(1) + " Ko" : (n / 1048576).toFixed(2) + " Mo";
+const delimName = d => ({ ";": "« ; » point-virgule", ",": "« , » virgule", "\t": "tabulation", "|": "« | » barre" }[d] || JSON.stringify(d));
+
+/* ---------------------------------------------------------------------------
+ * Détection d'encodage
+ * ------------------------------------------------------------------------- */
+function scanBytes(b, start) {
+  // Parcourt les octets pour classer UTF-8 valide / invalide, ligne par ligne.
+  let line = 1, high = 0, validSeq = 0, invalid = 0, nul = 0, nulEven = 0, nulOdd = 0;
+  const utf8Lines = new Set(), badLines = new Set(), undefLines = new Set();
+  for (let i = start; i < b.length; i++) {
+    const x = b[i];
+    if (x === 0x0A) { line++; continue; }
+    if (x === 0x0D) { if (b[i + 1] !== 0x0A) line++; continue; }
+    if (x === 0) { nul++; if (i % 2) nulOdd++; else nulEven++; continue; }
+    if (x < 0x80) continue;
+    high++;
+    let need = 0;
+    if (x >= 0xC2 && x <= 0xDF) need = 1;
+    else if (x >= 0xE0 && x <= 0xEF) need = 2;
+    else if (x >= 0xF0 && x <= 0xF4) need = 3;
+    let ok = need > 0 && i + need < b.length + 0;
+    for (let k = 1; ok && k <= need; k++) { const y = b[i + k]; if (y === undefined || y < 0x80 || y > 0xBF) ok = false; }
+    if (ok) { validSeq++; utf8Lines.add(line); i += need; }
+    else { invalid++; badLines.add(line); if (CP1252_UNDEFINED.has(x)) undefLines.add(line); }
+  }
+  return { high, validSeq, invalid, nul, nulEven, nulOdd, utf8Lines, badLines, undefLines };
+}
+
+function decode(bytes, override) {
+  const r = { enc: "", label: "", bom: false, text: "", scan: null, forced: override !== "auto", guessed16: false };
+  let start = 0;
+  if (bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) { r.bom = "utf-8"; start = 3; }
+  else if (bytes[0] === 0xFF && bytes[1] === 0xFE) { r.bom = "utf-16le"; start = 2; }
+  else if (bytes[0] === 0xFE && bytes[1] === 0xFF) { r.bom = "utf-16be"; start = 2; }
+
+  let enc;
+  if (override !== "auto") enc = override;
+  else if (r.bom) enc = r.bom;
+  else {
+    const s = scanBytes(bytes, 0);
+    r.scan = s;
+    if (s.nul > bytes.length * 0.2) { enc = s.nulOdd > s.nulEven ? "utf-16le" : "utf-16be"; r.guessed16 = true; }
+    else if (s.high === 0) enc = "ascii";
+    else if (s.invalid === 0) enc = "utf-8";
+    else if (s.validSeq > 0) enc = "mixed";
+    else enc = "windows-1252";
+  }
+  if (!r.scan && !enc.startsWith("utf-16")) r.scan = scanBytes(bytes, start);
+  r.enc = enc;
+  const decEnc = enc === "ascii" || enc === "mixed" ? "windows-1252" : enc;
+  const body = bytes.subarray(enc.startsWith("utf-16") && r.bom ? 2 : (r.bom === "utf-8" && decEnc === "utf-8" ? 3 : 0));
+  r.text = new TextDecoder(decEnc, { ignoreBOM: true }).decode(body);
+  r.label = {
+    "ascii": "ASCII", "utf-8": r.bom === "utf-8" ? "UTF-8 avec BOM" : "UTF-8", "windows-1252": "ANSI (Windows-1252)",
+    "mixed": "Mixte ANSI + UTF-8", "utf-16le": "UTF-16 LE", "utf-16be": "UTF-16 BE",
+  }[enc] || enc;
+  return r;
+}
+
+/* ---------------------------------------------------------------------------
+ * Séparateur
+ * ------------------------------------------------------------------------- */
+function detectDelimiter(text) {
+  // La ligne 1 (en-tête) fait référence : on retient le séparateur présent dans l'en-tête
+  // et dont le nombre d'occurrences est le plus stable sur les lignes suivantes.
+  const sample = text.slice(0, 65536).replace(/"(?:[^"]|"")*"/g, "");
+  const lines = sample.split(/\r\n|\n|\r/).filter(l => l.trim()).slice(0, 50);
+  let best = { d: ";", score: -1, conf: 0 };
+  if (!lines.length) return best;
+  for (const d of [";", ",", "\t", "|"]) {
+    const counts = lines.map(l => l.split(d).length - 1);
+    const hc = counts[0];
+    if (!hc) continue;
+    const rest = counts.length > 1 ? counts.slice(1) : counts;
+    const exact = rest.filter(c => c === hc).length / rest.length;
+    const near = rest.filter(c => Math.abs(c - hc) <= 1).length / rest.length;
+    const conf = (exact + near) / 2;
+    const score = conf * 1000 + Math.min(hc, 50);
+    if (score > best.score) best = { d, score, conf };
+  }
+  return best;
+}
+
+/* ---------------------------------------------------------------------------
+ * Parseur CSV (RFC 4180 tolérant) — conserve positions et lignes d'origine
+ * ------------------------------------------------------------------------- */
+function parseCSV(text, d) {
+  const recs = [];
+  const n = text.length;
+  let i = 0, line = 1, recStart = 0, recLine = 1;
+  let fields = [], field = "", quoted = false, inQ = false, issues = [], delims = [];
+  const pushField = () => { fields.push({ v: field, q: quoted }); field = ""; quoted = false; };
+  const pushRec = end => {
+    pushField();
+    recs.push({ fields, line: recLine, lineEnd: line, start: recStart, end, issues, delims });
+    fields = []; issues = []; delims = [];
+  };
+  while (i < n) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i += 2; continue; }
+        inQ = false; i++;
+        if (i < n) { const nx = text[i]; if (nx !== d && nx !== "\n" && nx !== "\r") issues.push({ code: "quote-garbage", c: fields.length }); }
+        continue;
+      }
+      if (c === "\r") { if (text[i + 1] === "\n") { field += "\r\n"; i += 2; } else { field += "\r"; i++; } line++; continue; }
+      if (c === "\n") line++;
+      field += c; i++; continue;
+    }
+    if (c === '"') {
+      if (field.length === 0 && !quoted) { inQ = true; quoted = true; i++; continue; }
+      issues.push({ code: "stray-quote", c: fields.length });
+      field += c; i++; continue;
+    }
+    if (c === d) { delims.push(i); pushField(); i++; continue; }
+    if (c === "\r" || c === "\n") {
+      const end = i;
+      i += (c === "\r" && text[i + 1] === "\n") ? 2 : 1;
+      pushRec(end);
+      line++; recStart = i; recLine = line;
+      continue;
+    }
+    field += c; i++;
+  }
+  if (inQ) issues.push({ code: "unclosed-quote", c: fields.length });
+  if (recStart < n || fields.length || field.length) pushRec(n);
+  return recs;
+}
+
+/* ---------------------------------------------------------------------------
+ * Typage des valeurs
+ * ------------------------------------------------------------------------- */
+const RX = {
+  int: /^[-+]?\d+$/,
+  decComma: /^[-+]?\d+,\d+$/,
+  decPoint: /^[-+]?\d+\.\d+$/,
+  numSp: /^[-+]?\d{1,3}(?:[   .]\d{3})+(?:,\d+)?$/,
+  dateFr: /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$/,
+  dateFr2: /^(\d{1,2})\/(\d{1,2})\/(\d{2})$/,
+  dateIso: /^(\d{4})-(\d{2})-(\d{2})(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?Z?)?$/,
+  sci: /^[-+]?\d+(?:[.,]\d+)?E[-+]?\d+$/i,
+};
+function classify(v) {
+  const t = v.trim();
+  if (!t) return { fam: "empty", sub: "" };
+  if (RX.int.test(t)) return { fam: "num", sub: "int" };
+  if (RX.decComma.test(t)) return { fam: "num", sub: "comma" };
+  if (RX.decPoint.test(t)) return { fam: "num", sub: "point" };
+  if (RX.numSp.test(t)) return { fam: "num", sub: "grouped" };
+  if (RX.sci.test(t)) return { fam: "num", sub: "sci" };
+  let m;
+  if ((m = RX.dateFr.exec(t))) return { fam: "date", sub: "JJ/MM/AAAA", d: +m[1], mo: +m[2], y: +m[3] };
+  if ((m = RX.dateIso.exec(t))) return { fam: "date", sub: "AAAA-MM-JJ", d: +m[3], mo: +m[2], y: +m[1] };
+  if ((m = RX.dateFr2.exec(t))) return { fam: "date", sub: "JJ/MM/AA", d: +m[1], mo: +m[2], y: 2000 + +m[3] };
+  return { fam: "text", sub: "" };
+}
+const validDate = (d, mo, y) => mo >= 1 && mo <= 12 && d >= 1 && d <= new Date(y, mo, 0).getDate();
+const FAM_LABEL = { num: "nombre", date: "date", text: "texte", empty: "vide", mixed: "mixte" };
+
+const RX_MOJIBAKE = /Ã[\u0080-¿ŒœŠšŸŽžƒˆ˜–—‘-„†-•…‰‹›€™]|â€|Â[ -¿]|ï»¿/;
+
+/* ---------------------------------------------------------------------------
+ * Analyse complète
+ * ------------------------------------------------------------------------- */
+function analyze() {
+  const bytes = state.bytes;
+  const dec = decode(bytes, state.encOverride);
+  const text = dec.text;
+  const dg = detectDelimiter(text);
+  const delim = state.delimOverride === "auto" ? dg.d : state.delimOverride;
+  const recs = parseCSV(text, delim);
+
+  const groups = new Map();          // code -> {code, sev, t, h, locs:[], details:[]}
+  const cellIss = new Map();         // "r:c" -> [codes]
+  const rowIss = new Map();          // r -> [codes]
+  const add = (code, loc, detail, sevOverride) => {
+    const def = DEFS[code];
+    let g = groups.get(code);
+    if (!g) { g = { code, sev: sevOverride || def.sev, t: def.t, h: def.h, locs: [], details: [] }; groups.set(code, g); }
+    if (detail && g.details.length < 6 && !g.details.includes(detail)) g.details.push(detail);
+    if (loc) {
+      g.locs.push(loc);
+      if (loc.c !== undefined && loc.r !== undefined) {
+        const k = loc.r + ":" + loc.c;
+        if (!cellIss.has(k)) cellIss.set(k, []);
+        if (!cellIss.get(k).includes(code)) cellIss.get(k).push(code);
+      }
+      if (loc.r !== undefined) {
+        if (!rowIss.has(loc.r)) rowIss.set(loc.r, []);
+        if (!rowIss.get(loc.r).includes(code)) rowIss.get(loc.r).push(code);
+      }
+    }
+  };
+  const recForLine = ln => {
+    let lo = 0, hi = recs.length - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1, r = recs[mid];
+      if (ln < r.line) hi = mid - 1; else if (ln > r.lineEnd) lo = mid + 1; else return mid;
+    }
+    return undefined;
+  };
+
+  /* --- Encodage --- */
+  const exp = state.expected;
+  if (dec.forced) add("enc-forced", null, "Lecture en " + dec.label);
+  if (dec.enc === "ascii") add("enc-ascii");
+  else if (dec.enc === "windows-1252") add(exp === "ansi" ? "enc-ansi-ok" : "enc-ansi");
+  else if (dec.enc === "utf-8") {
+    if (dec.bom === "utf-8") add("enc-utf8-bom", null, null, exp === "ansi" ? "warning" : "info");
+    else add(exp === "ansi" ? "enc-utf8" : "enc-utf8-ok");
+  }
+  else if (dec.enc.startsWith("utf-16")) add(dec.guessed16 ? "enc-utf16-nobom" : "enc-utf16");
+  else if (dec.enc === "mixed") {
+    const s = dec.scan;
+    const minority = s.utf8Lines.size <= s.badLines.size ? s.utf8Lines : s.badLines;
+    add("enc-mixed", null, `${s.utf8Lines.size} ligne(s) avec UTF-8, ${s.badLines.size} ligne(s) avec ANSI`);
+    [...minority].sort((a, b) => a - b).forEach(ln => { const r = recForLine(ln); if (r !== undefined) add("enc-mixed", { r, line: ln }); });
+  }
+  if (dec.scan && dec.scan.undefLines.size && (dec.enc === "windows-1252" || dec.enc === "mixed")) {
+    [...dec.scan.undefLines].forEach(ln => { const r = recForLine(ln); if (r !== undefined) add("enc-undef", { r, line: ln }); });
+  }
+
+  /* --- Fins de ligne --- */
+  let crlf = 0, lf = 0, cr = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    if (c === 13) { if (text.charCodeAt(i + 1) === 10) { crlf++; i++; } else cr++; }
+    else if (c === 10) lf++;
+  }
+  const eolKinds = [crlf, lf, cr].filter(x => x > 0).length;
+  if (eolKinds > 1) add("eol-mixed", null, `CRLF : ${crlf} · LF : ${lf} · CR : ${cr}`);
+  else if (lf > 0) add("eol-lf");
+  else if (cr > 0) add("eol-cr");
+  const eolLabel = eolKinds > 1 ? "Mixtes" : crlf ? "CRLF (Windows)" : lf ? "LF (Unix)" : cr ? "CR (Mac)" : "—";
+  if (text.length && !/[\r\n]$/.test(text)) add("no-final-eol");
+
+  if (state.delimOverride === "auto" && dg.conf < 0.7 && recs.length > 2) add("delim-guess", null, `Confiance ${(dg.conf * 100).toFixed(0)} %`);
+
+  /* --- En-tête --- */
+  const header = recs[0] ? recs[0].fields : [];
+  let expected = header.length;
+  while (expected > 1 && header[expected - 1].v.trim() === "" && !header[expected - 1].q) expected--;
+  if (expected < header.length) {
+    for (let c = expected; c < header.length; c++) add("header-trailing", { r: 0, c }, `${header.length - expected} séparateur(s) en trop`);
+  }
+  const seen = new Map();
+  for (let c = 0; c < expected; c++) {
+    const name = header[c].v;
+    if (!name.trim()) add("header-empty", { r: 0, c }, `Colonne ${colLetter(c)}`);
+    else {
+      const k = name.trim().toLowerCase();
+      if (seen.has(k)) { add("header-dup", { r: 0, c }, `« ${name.trim()} » (colonnes ${colLetter(seen.get(k))} et ${colLetter(c)})`); add("header-dup", { r: 0, c: seen.get(k) }); }
+      else seen.set(k, c);
+      if (name !== name.trim()) add("header-ws", { r: 0, c }, JSON.stringify(name));
+      const cl = classify(name);
+      if (cl.fam === "num" || cl.fam === "date") add("header-numeric", { r: 0, c }, name);
+    }
+  }
+
+  /* --- Lignes --- */
+  const isEmptyRec = rec => rec.fields.length === 1 && !rec.fields[0].q && rec.fields[0].v.trim() === "";
+  let lastNonEmpty = recs.length - 1;
+  while (lastNonEmpty > 0 && isEmptyRec(recs[lastNonEmpty])) lastNonEmpty--;
+  const dataIdx = [];
+  const dupMap = new Map();
+  let maxCols = header.length;
+  recs.forEach((rec, r) => {
+    rec.empty = isEmptyRec(rec);
+    rec.issues.forEach(pi => add(pi.code, { r, c: pi.c }, pi.code === "unclosed-quote" ? `Ouvert ligne ${rec.line}, colonne ${colLetter(pi.c)}` : null));
+    if (r === 0) return;
+    if (rec.empty) { add(r > lastNonEmpty ? "eof-empty" : "empty-line", { r }); return; }
+    dataIdx.push(r);
+    const f = rec.fields;
+    maxCols = Math.max(maxCols, f.length);
+    if (f.every(x => x.v === "")) add("only-delims", { r });
+    if (f.length > expected) {
+      const extra = f.slice(expected);
+      if (extra.every(x => x.v.trim() === "")) {
+        add("trailing-delim", { r, c: expected }, `${extra.length} séparateur(s) en trop`);
+      } else {
+        add("too-many-cols", { r, c: expected }, `${f.length} valeurs au lieu de ${expected}`);
+      }
+    } else if (f.length < expected) {
+      add("too-few-cols", { r }, `${f.length} valeurs au lieu de ${expected}`);
+    }
+    const key = f.map(x => x.v).join("\u0001");
+    if (dupMap.has(key)) add("dup-row", { r }, null);
+    else dupMap.set(key, r);
+  });
+  if (!dataIdx.length) add("no-data");
+  // Détail des doublons : ligne d'origine
+  recs.forEach((rec, r) => { if (rowIss.get(r) && rowIss.get(r).includes("dup-row")) rec.dupOf = recs[dupMap.get(rec.fields.map(x => x.v).join("\u0001"))].line; });
+
+  /* --- Cellules --- */
+  const checkCell = (v, r, c) => {
+    if (!v) return;
+    if (/^[ \t]|[ \t]$/.test(v) && r !== 0) add("ws-edge", { r, c });
+    if (/\S {2,}\S/.test(v)) add("double-space", { r, c });
+    if (/[  ]/.test(v)) add("nbsp", { r, c });
+    if (/[​-‍⁠﻿]/.test(v)) add("zero-width", { r, c });
+    if (/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(v)) add("control", { r, c });
+    if (/[\u0080-\u009F]/.test(v)) add("c1-control", { r, c });
+    if (delim !== "\t" && /\t/.test(v)) add("tab-in-cell", { r, c });
+    if (/[\r\n]/.test(v)) add("multiline", { r, c });
+    if (/�/.test(v)) add("replacement", { r, c });
+    const mj = RX_MOJIBAKE.exec(v);
+    if (mj) add("mojibake", { r, c }, `« ${mj[0]} » dans ${JSON.stringify(v.length > 40 ? v.slice(0, 40) + "…" : v)}`);
+    if (/[A-Za-zÀ-ÿ]\?[A-Za-zÀ-ÿ]/.test(v)) add("question-mark", { r, c }, v.length > 40 ? v.slice(0, 40) + "…" : v);
+    if (exp === "ansi") {
+      const bad = [...new Set([...v].filter(ch => !isAnsiChar(ch)))];
+      if (bad.length) add("not-ansi", { r, c }, bad.slice(0, 5).map(ch => `« ${ch} » U+${hex(ch.codePointAt(0), 4)}`).join(", "));
+    }
+    const t = v.trim();
+    if (/^[=+\-@]/.test(t) && classify(t).fam !== "num") add("formula", { r, c });
+    if (RX.sci.test(t)) add("sci", { r, c }, t);
+    if (v.length > 255) add("long-cell", { r, c });
+  };
+  header.forEach((f, c) => checkCell(f.v, 0, c));
+  dataIdx.forEach(r => recs[r].fields.forEach((f, c) => checkCell(f.v, r, c)));
+
+  /* --- Colonnes --- */
+  const cols = [];
+  for (let c = 0; c < expected; c++) {
+    const st = { fam: {}, sub: {}, filled: 0, total: 0, maxLen: 0, cls: [] };
+    dataIdx.forEach(r => {
+      const f = recs[r].fields[c];
+      st.total++;
+      if (!f) { st.cls.push(null); return; }
+      const cl = classify(f.v);
+      st.cls.push(cl);
+      st.maxLen = Math.max(st.maxLen, f.v.length);
+      if (cl.fam === "empty") return;
+      st.filled++;
+      st.fam[cl.fam] = (st.fam[cl.fam] || 0) + 1;
+      st.sub[cl.fam + ":" + cl.sub] = (st.sub[cl.fam + ":" + cl.sub] || 0) + 1;
+    });
+    let dom = "empty";
+    if (st.filled) {
+      const [fam, n] = Object.entries(st.fam).sort((a, b) => b[1] - a[1])[0];
+      dom = n / st.filled >= 0.7 ? fam : "mixed";
+    }
+    st.dom = dom;
+    if (!st.filled && st.total) add("empty-col", { r: 0, c }, header[c].v || colLetter(c));
+    // Anomalies de type
+    if ((dom === "num" || dom === "date" || dom === "text") && st.filled >= 3) {
+      const comma = st.sub["num:comma"] || 0, point = st.sub["num:point"] || 0;
+      const minorityDec = comma && point ? (comma >= point ? "point" : "comma") : null;
+      const dateSubs = Object.keys(st.sub).filter(k => k.startsWith("date:"));
+      let majorDate = null;
+      if (dateSubs.length > 1) majorDate = dateSubs.sort((a, b) => st.sub[b] - st.sub[a])[0].slice(5);
+      dataIdx.forEach((r, i) => {
+        const cl = st.cls[i];
+        if (!cl || cl.fam === "empty") return;
+        if (dom !== "text" && cl.fam !== dom) add("type-mismatch", { r, c }, `Colonne « ${header[c].v.trim() || colLetter(c)} » : ${FAM_LABEL[dom]} attendu`);
+        if (dom === "num" && minorityDec && cl.sub === minorityDec) add("mixed-decimal", { r, c }, `« ${header[c].v.trim()} » : ${comma} avec virgule, ${point} avec point`);
+        if (dom === "date" && majorDate && cl.fam === "date" && cl.sub !== majorDate) add("mixed-date", { r, c }, `« ${header[c].v.trim()} » : majoritairement ${majorDate}`);
+      });
+    }
+    dataIdx.forEach((r, i) => {
+      const cl = st.cls[i];
+      if (cl && cl.fam === "date" && !validDate(cl.d, cl.mo, cl.y)) add("invalid-date", { r, c }, recs[r].fields[c].v.trim());
+    });
+    if (st.total >= 10 && st.filled / st.total >= 0.9 && st.filled < st.total) {
+      dataIdx.forEach((r, i) => { const cl = st.cls[i]; if (cl && cl.fam === "empty") add("empty-in-full", { r, c }); });
+    }
+    cols.push(st);
+  }
+
+  // Sévérité max par ligne / cellule
+  const maxSev = codes => codes.reduce((m, k) => { const s = groups.get(k).sev; return !m || SEV_RANK[s] > SEV_RANK[m] ? s : m; }, null);
+  const rowSev = new Map(), cellSev = new Map();
+  rowIss.forEach((codes, r) => rowSev.set(r, maxSev(codes)));
+  cellIss.forEach((codes, k) => cellSev.set(k, maxSev(codes)));
+
+  const counts = { error: 0, warning: 0, info: 0 };
+  groups.forEach(g => { counts[g.sev] += g.locs.length || 1; });
+
+  state.res = { dec, delim, dg, recs, header, expected, maxCols, dataIdx, cols, groups, cellIss, rowIss, rowSev, cellSev, counts, eol: { crlf, lf, cr, label: eolLabel } };
+}
+
+/* ---------------------------------------------------------------------------
+ * Rendu
+ * ------------------------------------------------------------------------- */
+function visual(v, showAll) {
+  const lead = v.match(/^[ \t]*/)[0].length;
+  const trail = lead === v.length ? 0 : v.match(/[ \t]*$/)[0].length;
+  let out = "";
+  for (let i = 0; i < v.length; i++) {
+    const ch = v[i], code = v.charCodeAt(i);
+    const edge = i < lead || i >= v.length - trail;
+    if (ch === " ") out += edge ? '<span class="ws-edge">·</span>' : showAll ? '<span class="ws">·</span>' : " ";
+    else if (ch === "\t") out += edge ? '<span class="ws-edge">→</span>' : showAll ? '<span class="ws">→</span>' : '<span class="bad">⇥</span>';
+    else if (ch === " " || ch === " ") out += '<span class="bad" title="Espace insécable">⍽</span>';
+    else if (/[​-‍⁠﻿]/.test(ch)) out += `<span class="bad" title="U+${hex(code, 4)}">ZW</span>`;
+    else if (ch === "\r") out += '<span class="bad" title="CR">␍</span>';
+    else if (ch === "\n") out += '<span class="bad" title="LF">␊</span>';
+    else if (code < 0x20 || code === 0x7F) out += `<span class="bad" title="U+${hex(code, 4)}">${String.fromCharCode(code === 0x7F ? 0x2421 : 0x2400 + code)}</span>`;
+    else if (code >= 0x80 && code <= 0x9F) out += `<span class="bad" title="U+${hex(code, 4)}">x${hex(code)}</span>`;
+    else out += esc(ch);
+  }
+  return out;
+}
+
+function filteredRows() {
+  const { recs, rowIss } = state.res;
+  const q = state.search.trim().toLowerCase();
+  const out = [];
+  for (let r = 1; r < recs.length; r++) {
+    if (state.onlyIssues && !rowIss.has(r)) continue;
+    if (q && !recs[r].fields.some(f => f.v.toLowerCase().includes(q))) continue;
+    out.push(r);
+  }
+  return out;
+}
+
+function renderCards() {
+  const R = state.res, d = R.dec;
+  const encOk = (state.expected === "ansi" && (d.enc === "windows-1252" || d.enc === "ascii")) ||
+                (state.expected === "utf8" && (d.enc === "utf-8" || d.enc === "ascii"));
+  const encCls = d.enc === "mixed" || d.enc.startsWith("utf-16") ? "err" : encOk ? "ok" : "warn";
+  const rowsBad = [...R.rowIss.keys()].filter(r => r > 0).length;
+  const card = (k, v, s, cls = "") => `<div class="card ${cls}"><div class="k">${k}</div><div class="v" title="${esc(String(v).replace(/<[^>]+>/g, ""))}">${v}</div><div class="s">${s}</div></div>`;
+  $("cards").innerHTML = [
+    card("Fichier", esc(state.fileName), fmtSize(state.bytes.length)),
+    card("Encodage", esc(d.label), encOk ? "Conforme à l'attendu" : state.expected === "ansi" ? "ANSI attendu" : "UTF-8 attendu", encCls),
+    card("Séparateur", esc(delimName(R.delim)), state.delimOverride === "auto" ? `détecté · confiance ${(R.dg.conf * 100).toFixed(0)} %` : "forcé", R.dg.conf < 0.7 && state.delimOverride === "auto" ? "warn" : ""),
+    card("Fins de ligne", R.eol.label, `CRLF ${R.eol.crlf} · LF ${R.eol.lf} · CR ${R.eol.cr}`, R.eol.label === "Mixtes" ? "warn" : ""),
+    card("Lignes de données", R.dataIdx.length.toLocaleString("fr-FR"), `${R.recs.length.toLocaleString("fr-FR")} enregistrement(s) au total`),
+    card("Colonnes", R.expected, R.maxCols > R.expected ? `jusqu'à ${R.maxCols} sur certaines lignes` : "cohérent sur tout le fichier", R.maxCols > R.expected ? "err" : "ok"),
+    card("Anomalies", `<span class="pill error">${R.counts.error}</span><span class="pill warning">${R.counts.warning}</span><span class="pill info">${R.counts.info}</span>`,
+      `${rowsBad} ligne(s) concernée(s)`, R.counts.error ? "err" : R.counts.warning ? "warn" : "ok"),
+  ].join("");
+}
+
+function locLabel(loc) {
+  const R = state.res;
+  if (loc.r === undefined) return "";
+  const rec = R.recs[loc.r];
+  let s = loc.r === 0 ? "En-tête" : "L" + (loc.line || rec.line);
+  if (loc.c !== undefined) {
+    const h = R.header[loc.c];
+    s += " · " + (loc.c >= R.expected ? `+${loc.c - R.expected + 1}` : (h && h.v.trim()) || colLetter(loc.c));
+  }
+  return s;
+}
+
+function renderIssues() {
+  const R = state.res;
+  const gs = [...R.groups.values()].sort((a, b) => SEV_RANK[b.sev] - SEV_RANK[a.sev] || b.locs.length - a.locs.length);
+  const problems = gs.filter(g => g.sev !== "info").length;
+  $("issuesSummary").innerHTML = `Anomalies détectées &nbsp;<span class="pill error">${gs.filter(g => g.sev === "error").length} type(s) d'erreur</span><span class="pill warning">${gs.filter(g => g.sev === "warning").length} alerte(s)</span><span class="pill info">${gs.filter(g => g.sev === "info").length} info(s)</span>`;
+  if (!gs.length) { $("issues").innerHTML = '<div class="no-issue">✓ Aucune anomalie détectée.</div>'; return; }
+  const html = gs.map(g => {
+    const MAX = 120;
+    const locs = g.locs.slice(0, MAX).map((l, i) => `<span class="loc" data-g="${g.code}" data-i="${i}">${esc(locLabel(l))}</span>`).join("");
+    const more = g.locs.length > MAX ? `<span class="count">+ ${g.locs.length - MAX} autres…</span>` : "";
+    const n = g.locs.length;
+    return `<div class="issue ${g.sev}">
+      <div class="head"><span class="pill ${g.sev}">${SEV_LABEL[g.sev]}</span><span class="title">${esc(g.t)}</span>${n ? `<span class="count">${n} occurrence(s)</span>` : ""}</div>
+      ${g.h ? `<div class="hint">${esc(g.h)}</div>` : ""}
+      ${g.details.length ? `<div class="detail">${g.details.map(esc).join("<br>")}</div>` : ""}
+      ${n ? `<div class="locs">${locs}${more}</div>` : ""}
+    </div>`;
+  }).join("");
+  $("issues").innerHTML = `<div class="issue-list">${html}</div>`;
+  if (!problems) $("issues").insertAdjacentHTML("afterbegin", '<div class="no-issue">✓ Aucune erreur ni alerte — uniquement des informations.</div>');
+}
+
+function renderGrid() {
+  const R = state.res;
+  const { recs, header, expected, maxCols, cols, cellIss, cellSev, rowSev, rowIss } = R;
+  const hdrSev = c => cellSev.get("0:" + c);
+  let h = '<table class="grid" id="grid"><thead><tr><th class="rn" title="N° de ligne dans le fichier">Ligne</th>';
+  for (let c = 0; c < maxCols; c++) {
+    if (c >= expected) {
+      h += `<th class="extra" data-c="${c}" title="Colonne sans en-tête : valeurs en trop"><div class="letter">${colLetter(c)}</div><div class="name">⚠ en trop +${c - expected + 1}</div><div class="meta">hors en-tête</div></th>`;
+      continue;
+    }
+    const st = cols[c], name = header[c] ? header[c].v : "";
+    const pct = st.total ? Math.round(st.filled / st.total * 100) : 0;
+    const sv = hdrSev(c);
+    h += `<th data-c="${c}" data-r="0" class="${sv === "error" ? "bad-h" : ""}" title="${esc(`Colonne ${colLetter(c)} · type ${FAM_LABEL[st.dom]} · rempli ${pct} % · longueur max ${st.maxLen}`)}">
+      <div class="letter">${colLetter(c)}</div>
+      <div class="name">${name.trim() ? visual(name, state.showInvis) : '<span class="bad">sans nom</span>'}</div>
+      <div class="meta"><span class="type">${FAM_LABEL[st.dom]}</span><span class="fill"><i style="width:${pct}%"></i></span>${pct} %</div></th>`;
+  }
+  h += "</tr></thead><tbody>";
+
+  const rows = filteredRows();
+  const shown = rows.slice(0, state.limit);
+  const parts = [];
+  for (const r of shown) {
+    const rec = recs[r];
+    const rs = rowSev.get(r);
+    const dot = rs ? `<span class="dot" style="background:var(--${rs === "error" ? "err" : rs === "warning" ? "warn" : "info"})"></span>` : "";
+    const rowTitle = rowIss.has(r) ? rowIss.get(r).map(k => "• " + DEFS[k].t).join("\n") : "";
+    let tr = `<tr data-r="${r}" class="${rs ? "r-" + rs : ""}${rec.empty ? " emptyline" : ""}"><td class="rn" title="${esc(rowTitle)}">${dot}${rec.line}</td>`;
+    if (rec.empty) {
+      tr += `<td colspan="${maxCols}" data-c="0">— ligne vide —</td></tr>`;
+      parts.push(tr); continue;
+    }
+    for (let c = 0; c < maxCols; c++) {
+      const f = rec.fields[c];
+      if (!f) {
+        tr += c < expected ? `<td class="missing" data-c="${c}" title="Valeur absente : la ligne a moins de colonnes que l'en-tête">absent</td>` : `<td data-c="${c}"></td>`;
+        continue;
+      }
+      const k = r + ":" + c;
+      const cs = cellSev.get(k);
+      let cls = cs ? "c-" + cs : "";
+      if (c >= expected) cls += " extra";
+      if (c < expected && cols[c].dom === "num") cls += " num";
+      if (!f.v) cls += " empty-cell";
+      const tip = cellIss.has(k) ? cellIss.get(k).map(x => "• " + DEFS[x].t).join("\n") : "";
+      tr += `<td class="${cls}" data-c="${c}"${tip ? ` title="${esc(tip)}"` : ""}>${visual(f.v, state.showInvis)}</td>`;
+    }
+    parts.push(tr + "</tr>");
+  }
+  h += parts.join("") + "</tbody></table>";
+  if (!rows.length) h += '<div class="empty-state">Aucune ligne ne correspond aux filtres.</div>';
+  if (rows.length > shown.length) h += `<div class="more">${shown.length.toLocaleString("fr-FR")} / ${rows.length.toLocaleString("fr-FR")} lignes affichées · <button class="btn" id="btnMore">Afficher 1000 lignes de plus</button> <button class="btn" id="btnAll">Tout afficher</button></div>`;
+  $("gridWrap").innerHTML = h;
+  if ($("btnMore")) $("btnMore").onclick = () => { state.limit += 1000; renderGrid(); };
+  if ($("btnAll")) $("btnAll").onclick = () => { state.limit = Infinity; renderGrid(); };
+  if (state.sel) markSel();
+}
+
+function renderAll() {
+  renderCards();
+  renderIssues();
+  renderGrid();
+  $("fileLabel").textContent = state.fileName;
+  $("drop").classList.add("hidden");
+  $("view").classList.remove("hidden");
+}
+
+/* ---------------------------------------------------------------------------
+ * Inspecteur de cellule
+ * ------------------------------------------------------------------------- */
+function openInspector(r, c) {
+  const R = state.res, rec = R.recs[r];
+  if (!rec) return;
+  state.sel = { r, c };
+  markSel();
+  const f = rec.fields[c];
+  const colName = c >= R.expected ? `en trop +${c - R.expected + 1}` : (R.header[c] && R.header[c].v.trim()) || "sans nom";
+  $("inspTitle").textContent = `${r === 0 ? "En-tête" : "Ligne " + rec.line} · ${colLetter(c)} « ${colName} »`;
+
+  let h = "";
+  // Anomalies de la cellule + de la ligne
+  const cellCodes = R.cellIss.get(r + ":" + c) || [];
+  const rowCodes = (R.rowIss.get(r) || []).filter(k => !cellCodes.includes(k));
+  const issueBox = (k, suffix = "") => { const g = R.groups.get(k); return `<div class="issue ${g.sev}"><div class="head"><span class="pill ${g.sev}">${SEV_LABEL[g.sev]}</span><span class="title">${esc(g.t)}${suffix}</span></div>${g.h ? `<div class="hint">${esc(g.h)}</div>` : ""}</div>`; };
+  if (cellCodes.length || rowCodes.length) {
+    h += "<h3>Anomalies</h3><div class='ilist'>";
+    h += cellCodes.map(k => issueBox(k)).join("");
+    h += rowCodes.map(k => issueBox(k, k === "dup-row" && rec.dupOf ? ` (identique à la ligne ${rec.dupOf})` : " — sur la ligne")).join("");
+    h += "</div>";
+  }
+
+  // Valeur
+  if (f) {
+    const cl = classify(f.v);
+    h += `<h3>Valeur</h3><div class="valbox">${f.v ? visual(f.v, true) : '<span class="ws">(vide)</span>'}</div>`;
+    h += `<div class="kv" style="margin-top:10px">
+      <div>Longueur</div><div>${[...f.v].length} caractère(s)</div>
+      <div>Type détecté</div><div>${FAM_LABEL[cl.fam]}${cl.sub ? " · " + esc(cl.sub) : ""}</div>
+      <div>Entre guillemets</div><div>${f.q ? "oui" : "non"}</div>
+      <div>Octets ANSI</div><div>${[...f.v].every(isAnsiChar) ? encodeAnsi(f.v).bytes.length : "non convertible"}</div>
+      <div>Octets UTF-8</div><div>${new TextEncoder().encode(f.v).length}</div>
+    </div>`;
+  } else if (c < R.expected) {
+    h += `<h3>Valeur</h3><div class="valbox"><span class="bad">absente</span> — la ligne ne contient que ${rec.fields.length} valeur(s) pour ${R.expected} colonnes.</div>`;
+  }
+
+  // Ligne brute avec séparateurs
+  const raw = R.dec.text.slice(rec.start, rec.end);
+  let rawHtml = "", fi = 0, segStart = rec.start;
+  const delimSet = new Set(rec.delims);
+  const openSeg = () => `<span class="fi${fi === c ? " cur" : ""}">`;
+  rawHtml += openSeg();
+  for (let i = rec.start; i < rec.end; i++) {
+    if (delimSet.has(i)) {
+      fi++;
+      rawHtml += `</span><span class="dl${fi >= R.expected ? " over" : ""}" title="Séparateur n°${fi}">${esc(R.delim === "\t" ? "⇥" : R.delim)}</span>` + openSeg();
+    } else rawHtml += visual(R.dec.text[i], true);
+  }
+  rawHtml += "</span>";
+  h += `<h3>Ligne brute (${rec.fields.length} valeur(s), ${rec.delims.length} séparateur(s) — attendu ${R.expected - 1})</h3><div class="raw">${raw.length ? rawHtml : '<span class="ws">(vide)</span>'}</div>`;
+
+  // Détail des caractères
+  if (f && f.v) {
+    const chars = [...f.v].slice(0, 300);
+    const te = new TextEncoder();
+    h += `<h3>Caractères (${chars.length}${[...f.v].length > 300 ? " premiers" : ""})</h3><table class="chars"><tr><th>Car.</th><th>Unicode</th><th>ANSI</th><th>UTF-8</th><th></th></tr>`;
+    h += chars.map(ch => {
+      const cp = ch.codePointAt(0), ansi = CP1252.get(ch);
+      const u8 = [...te.encode(ch)].map(b => hex(b)).join(" ");
+      const note = cp < 0x20 || (cp >= 0x7F && cp <= 0x9F) ? "contrôle" : cp === 0xA0 || cp === 0x202F ? "insécable" : cp === 0x20 ? "espace" : cp === 0xFFFD ? "remplacement" : /[​-‍⁠﻿]/.test(ch) ? "invisible" : "";
+      return `<tr class="${ansi === undefined ? "nonansi" : ""} ${cp > 127 ? "nonascii" : ""}"><td>${visual(ch, true)}</td><td>U+${hex(cp, 4)}</td><td>${ansi === undefined ? "✗" : hex(ansi)}</td><td>${u8}</td><td>${note}</td></tr>`;
+    }).join("");
+    h += "</table>";
+  }
+  $("inspBody").innerHTML = h;
+  $("insp").classList.add("open");
+}
+function markSel() {
+  document.querySelectorAll("td.sel, th.sel").forEach(e => e.classList.remove("sel"));
+  if (!state.sel) return;
+  const tr = state.sel.r === 0 ? document.querySelector("#grid thead tr") : document.querySelector(`#grid tr[data-r="${state.sel.r}"]`);
+  const td = tr && tr.querySelector(`[data-c="${state.sel.c}"]`);
+  if (td) td.classList.add("sel");
+}
+function closeInspector() { $("insp").classList.remove("open"); state.sel = null; markSel(); }
+
+/* ---------------------------------------------------------------------------
+ * Navigation vers une anomalie
+ * ------------------------------------------------------------------------- */
+function jumpTo(loc) {
+  if (loc.r === undefined) return;
+  if (loc.r > 0) {
+    let rows = filteredRows();
+    if (!rows.includes(loc.r)) { state.search = ""; $("search").value = ""; state.onlyIssues = false; $("chkIssues").checked = false; rows = filteredRows(); }
+    const idx = rows.indexOf(loc.r);
+    if (idx >= state.limit) { state.limit = idx + 200; }
+    renderGrid();
+  }
+  const tr = loc.r === 0 ? document.querySelector("#grid thead tr") : document.querySelector(`#grid tr[data-r="${loc.r}"]`);
+  if (!tr) return;
+  const target = loc.c !== undefined ? tr.querySelector(`[data-c="${loc.c}"]`) || tr : tr;
+  target.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+  const el = loc.c !== undefined && target !== tr ? target : tr;
+  el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
+  openInspector(loc.r, loc.c !== undefined ? loc.c : 0);
+}
+
+/* ---------------------------------------------------------------------------
+ * Export
+ * ------------------------------------------------------------------------- */
+function download(bytes, name) {
+  const url = URL.createObjectURL(new Blob([bytes], { type: "text/csv" }));
+  const a = document.createElement("a");
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+function exportText() {
+  let t = state.res.dec.text.replace(/^﻿/, "");
+  if ($("chkCrlf").checked) t = t.replace(/\r\n|\r|\n/g, "\r\n");
+  return t;
+}
+const baseName = () => state.fileName.replace(/\.[^.]+$/, "") || "export";
+function exportAnsi() {
+  const { bytes, lost } = encodeAnsi(exportText());
+  download(bytes, baseName() + "_ANSI.csv");
+  toast(lost ? `Exporté en ANSI — ${lost} caractère(s) non convertible(s) remplacé(s) par « ? »` : "Exporté en ANSI (Windows-1252) sans perte");
+}
+function exportUtf8() {
+  const body = new TextEncoder().encode(exportText());
+  const out = new Uint8Array(body.length + 3);
+  out.set([0xEF, 0xBB, 0xBF]); out.set(body, 3);
+  download(out, baseName() + "_UTF8.csv");
+  toast("Exporté en UTF-8 avec BOM");
+}
+function toast(msg) {
+  const t = document.createElement("div");
+  t.className = "toast"; t.textContent = msg; document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = 0; setTimeout(() => t.remove(), 400); }, 3500);
+}
+
+/* ---------------------------------------------------------------------------
+ * Chargement
+ * ------------------------------------------------------------------------- */
+function load(bytes, name) {
+  state.bytes = bytes; state.fileName = name; state.limit = 1000; state.sel = null;
+  state.encOverride = "auto"; state.delimOverride = "auto";
+  $("selEnc").value = "auto"; $("selDelim").value = "auto";
+  closeInspector();
+  analyze(); renderAll();
+}
+function readFile(file) {
+  const fr = new FileReader();
+  fr.onload = () => load(new Uint8Array(fr.result), file.name);
+  fr.readAsArrayBuffer(file);
+}
+function demo() {
+  const lines = [
+    ["ansi", "Code;Libellé;Montant;Date opération;Ville;Commentaire;"],
+    ["ansi", "A001;Café crème;12,50;03/01/2024;Paris;RAS"],
+    ["ansi", "A002;Thé vert ;8,90;04/01/2024;Lyon;"],
+    ["ansi", "A003;Croissant;1.20;05/01/2024;Marseille;prix à vérifier;"],
+    ["ansi", "A004;Pain au chocolat;1,40;31/13/2024;Nantes;date erronée"],
+    ["utf8", "A005;Éclair café;3,80;06/01/2024;Besançon;ligne ajoutée en UTF-8"],
+    ["ansi", "A006;Brioche;2,10;07/01/2024;Lille"],
+    ["ansi", ""],
+    ["ansi", "A007;Chausson;1,95;08/01/2024;Toulouse;Montant; avec point-virgule non protégé"],
+    ["ansi", "A008;Madeleine;0,90;2024-01-09;Nice;format de date différent"],
+    ["ansi", "A009;Macaron framboise;1 250,00;10/01/2024;Bordeaux;espace insécable"],
+    ["ansi", "A010;CafÃ© double;2,20;11/01/2024;Rennes;accent cassé (double encodage)"],
+    ["ansi", "A011;Tarte;4,50;12/01/2024;Strasbourg;\"Recette \"\"maison\"\"\""],
+    ["ansi", "A012;Flan 12\" pouces;3,30;13/01/2024;Dijon;guillemet isolé"],
+    ["ansi", "A013;Gaufre;inconnu;14/01/2024;Reims;texte dans une colonne numérique"],
+    ["ansi", "A014;Cr?pe;2,00;15/01/2024;Brest;caractère perdu"],
+    ["ansi", "A015;Beignet;1,23E+11;16/01/2024;Metz;notation scientifique Excel"],
+    ["ansi", "A006;Brioche;2,10;07/01/2024;Lille"],
+    ["ansi", ";;;;;"],
+    ["ansi", "A016;Chouquette;0,50;17/01/2024;=SOMME(A1:A3);injection formule"],
+  ];
+  const chunks = lines.map(([enc, l], i) => {
+    const eol = i === 6 ? "\n" : "\r\n";
+    return enc === "utf8" ? new TextEncoder().encode(l + eol) : encodeAnsi(l + eol).bytes;
+  });
+  const total = chunks.reduce((n, c) => n + c.length, 0);
+  const out = new Uint8Array(total); let o = 0;
+  chunks.forEach(c => { out.set(c, o); o += c.length; });
+  load(out, "exemple_avec_erreurs.csv");
+}
+
+/* ---------------------------------------------------------------------------
+ * Événements
+ * ------------------------------------------------------------------------- */
+const openPicker = () => $("fileInput").click();
+$("btnOpen").onclick = openPicker; $("btnOpen2").onclick = openPicker;
+$("btnDemo").onclick = demo; $("btnDemo2").onclick = demo;
+$("fileInput").onchange = e => { if (e.target.files[0]) readFile(e.target.files[0]); e.target.value = ""; };
+["dragenter", "dragover"].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); $("drop").classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); if (ev === "drop" || !e.relatedTarget) $("drop").classList.remove("over"); }));
+document.addEventListener("drop", e => { const f = e.dataTransfer.files[0]; if (f) readFile(f); });
+
+$("selExpected").onchange = e => { state.expected = e.target.value; if (state.bytes) { analyze(); renderAll(); } };
+$("selEnc").onchange = e => { state.encOverride = e.target.value; analyze(); renderAll(); };
+$("selDelim").onchange = e => { state.delimOverride = e.target.value === "\\t" ? "\t" : e.target.value; analyze(); renderAll(); };
+let searchT;
+$("search").oninput = e => { clearTimeout(searchT); searchT = setTimeout(() => { state.search = e.target.value; state.limit = 1000; renderGrid(); }, 150); };
+$("chkIssues").onchange = e => { state.onlyIssues = e.target.checked; state.limit = 1000; renderGrid(); };
+$("chkInvis").onchange = e => { state.showInvis = e.target.checked; renderGrid(); };
+$("btnExpAnsi").onclick = exportAnsi;
+$("btnExpUtf8").onclick = exportUtf8;
+$("inspClose").onclick = closeInspector;
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeInspector(); });
+
+$("issues").addEventListener("click", e => {
+  const l = e.target.closest(".loc");
+  if (!l) return;
+  const g = state.res.groups.get(l.dataset.g);
+  jumpTo(g.locs[+l.dataset.i]);
+});
+
+$("gridWrap").addEventListener("click", e => {
+  const cell = e.target.closest("td[data-c], th[data-c]");
+  if (!cell) return;
+  const tr = cell.closest("tr");
+  const r = tr.dataset.r !== undefined ? +tr.dataset.r : 0;
+  openInspector(r, +cell.dataset.c);
+});
+// Surbrillance de la colonne survolée (pour comparer verticalement)
+let hlCol = -1;
+$("gridWrap").addEventListener("mouseover", e => {
+  const cell = e.target.closest("td[data-c], th[data-c]");
+  const c = cell && !cell.hasAttribute("colspan") ? +cell.dataset.c : -1;
+  if (c === hlCol) return;
+  hlCol = c;
+  $("colHlStyle").textContent = c < 0 ? "" :
+    `#grid td[data-c="${c}"]:not([colspan]), #grid th[data-c="${c}"] { box-shadow: inset 0 0 0 9999px var(--colhl); }
+     #grid th[data-c="${c}"] { border-bottom-color: var(--accent); }`;
+});
+$("gridWrap").addEventListener("mouseleave", () => { hlCol = -1; $("colHlStyle").textContent = ""; });
+</script>
+</body>
+</html>
