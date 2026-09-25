@@ -229,6 +229,36 @@ table.chars tr.nonascii td:first-child { font-weight: 700; }
 }
 .sec-sub { color: var(--muted); font-size: 13px; margin: -6px 0 12px; }
 
+/* Section 4 : rendu façon Excel (toujours en thème clair, comme Excel) */
+.xl { border: 1px solid #c6c6c6; border-radius: 6px; overflow: hidden; background: #fff; color: #000; font-family: Aptos Narrow, Calibri, Carlito, Arial, sans-serif; font-size: 14.5px; }
+.xl-bar { display: flex; align-items: stretch; border-bottom: 1px solid #d4d4d4; background: #fff; height: 28px; }
+.xl-name { width: 90px; border-right: 1px solid #d4d4d4; padding: 0 8px; display: flex; align-items: center; font-size: 13px; }
+.xl-fx { width: 44px; border-right: 1px solid #d4d4d4; display: flex; align-items: center; justify-content: center; color: #777; font-style: italic; font-family: "Times New Roman", serif; font-size: 15px; }
+.xl-formula { flex: 1; padding: 0 8px; display: flex; align-items: center; white-space: pre; overflow: hidden; font-size: 13.5px; }
+.xl-scroll { overflow: auto; max-height: calc(100vh - 220px); background: #fff; }
+table.xlgrid { border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+table.xlgrid td, table.xlgrid th {
+  height: 20px; padding: 0 3px; border-right: 1px solid #e1e1e1; border-bottom: 1px solid #e1e1e1;
+  white-space: nowrap; overflow: hidden; line-height: 19px; font-weight: 400; cursor: cell; background: transparent;
+}
+table.xlgrid td.ov { overflow: visible; position: relative; z-index: 1; }
+table.xlgrid td.n { text-align: right; }
+table.xlgrid thead th {
+  position: sticky; top: 0; z-index: 3; background: #f5f5f5; color: #444; text-align: center; font-size: 13px;
+  border-right: 1px solid #d4d4d4; border-bottom: 1px solid #c6c6c6; cursor: default;
+}
+table.xlgrid th.rh {
+  position: sticky; left: 0; z-index: 2; background: #f5f5f5; color: #444; text-align: center; font-size: 13px;
+  border-right: 1px solid #c6c6c6; border-bottom: 1px solid #d4d4d4; cursor: default;
+}
+table.xlgrid thead th.rh { z-index: 4; }
+table.xlgrid th.on { background: #d3f0e0; color: #0e5c2f; font-weight: 700; border-bottom-color: #107c41; }
+table.xlgrid th.rh.on { border-right: 2px solid #107c41; }
+table.xlgrid td.sel { outline: 2px solid #107c41; outline-offset: -2px; }
+.xl-tabs { display: flex; align-items: center; gap: 2px; border-top: 1px solid #d4d4d4; background: #f5f5f5; height: 30px; padding-left: 60px; font-size: 13px; }
+.xl-tab { background: #fff; color: #107c41; font-weight: 700; padding: 5px 16px; border-bottom: 3px solid #107c41; }
+.xl-status { display: flex; justify-content: space-between; background: #f5f5f5; border-top: 1px solid #e1e1e1; padding: 3px 10px; font-size: 12px; color: #444; }
+
 /* Section 3 : données brutes */
 .rawdata-wrap { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); overflow: auto; max-height: calc(100vh - 150px); }
 table.rawdata { table-layout: fixed; border-collapse: collapse; font-family: var(--mono); font-size: 13px; }
@@ -319,6 +349,12 @@ kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--line); 
     <summary class="sec-title"><span>3</span>Données brutes</summary>
     <p class="sec-sub">Valeurs telles qu'elles sont dans le fichier, sans surlignage. Colonnes de largeur identique, retour à la ligne au-delà de 50 caractères.</p>
     <div class="rawdata-wrap" id="rawWrap"></div>
+   </details>
+
+   <details class="sec">
+    <summary class="sec-title"><span>4</span>Visuel classique d'Excel</summary>
+    <p class="sec-sub" id="xlNote"></p>
+    <div class="xl" id="xlWrap"></div>
    </details>
   </section>
 </main>
@@ -449,7 +485,7 @@ const state = {
   bytes: null, fileName: "",
   expected: "ansi", encOverride: "auto", delimOverride: "auto",
   search: "", onlyIssues: false, showInvis: false,
-  limit: 1000, rawLimit: 1000, res: null, sel: null,
+  limit: 1000, rawLimit: 1000, xlLimit: 1000, xl: null, res: null, sel: null,
 };
 
 const $ = id => document.getElementById(id);
@@ -1010,11 +1046,99 @@ function renderRaw() {
   if ($("btnRawAll")) $("btnRawAll").onclick = () => { state.rawLimit = Infinity; renderRaw(); };
 }
 
+/* Section 4 : simulation d'Excel (paramètres régionaux français) à l'ouverture du CSV par double-clic :
+ * - lit en ANSI sauf si le fichier commence par un BOM UTF-8 ;
+ * - découpe uniquement sur « ; » ;
+ * - convertit nombres / dates et les aligne à droite, format « Standard » ;
+ * - largeur de colonne par défaut (64 px), le texte déborde sur les cellules vides voisines. */
+function excelValue(v) {
+  const t = v.replace(/[\r\n]+/g, " ");
+  const s = t.trim();
+  let m;
+  const num = str => {
+    const x = parseFloat(str.replace(/ /g, "").replace(",", "."));
+    const ax = Math.abs(x);
+    if (ax !== 0 && (ax >= 1e11 || ax < 1e-9)) {
+      const [mant, ex] = x.toExponential(5).split("e");
+      return (+mant).toString().replace(".", ",") + "E" + (ex[0] === "-" ? "-" : "+") + ex.replace(/^[-+]/, "").padStart(2, "0");
+    }
+    return (+x.toPrecision(11)).toString().replace(".", ",");
+  };
+  if (/^[-+]?\d{1,3}( \d{3})+(,\d+)?$/.test(s) || /^[-+]?\d+(,\d+)?$/.test(s) || /^[-+]?\d+(,\d+)?E[-+]?\d+$/i.test(s)) return { v: num(s), n: true };
+  if ((m = /^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/.exec(s)) && validDate(+m[1], +m[2], m[3].length === 2 ? 2000 + +m[3] : +m[3]))
+    return { v: `${m[1].padStart(2, "0")}/${m[2].padStart(2, "0")}/${m[3].length === 2 ? "20" + m[3] : m[3]}`, n: true, date: true };
+  if ((m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s)) && validDate(+m[3], +m[2], +m[1])) return { v: `${m[3]}/${m[2]}/${m[1]}`, n: true, date: true };
+  if ((m = /^[-+]?\d+(,\d+)?\s?%$/.exec(s))) return { v: s.replace(/\s/, ""), n: true };
+  return { v: t, n: false };
+}
+
+function renderExcel() {
+  const d = state.res.dec;
+  const hasBom = d.bom === "utf-8";
+  const text = hasBom ? new TextDecoder("utf-8").decode(state.bytes.subarray(3))
+             : d.enc.startsWith("utf-16") ? d.text
+             : new TextDecoder("windows-1252").decode(state.bytes);
+  const recs = parseCSV(text, ";");
+  const nRows = Math.min(recs.length, state.xlLimit);
+  let nCols = 0;
+  recs.forEach(r => { nCols = Math.max(nCols, r.fields.length); });
+  const cols = Math.max(nCols + 3, 20), rows = nRows + 10;
+  state.xl = { recs, cols };
+  const vals = recs.slice(0, nRows).map(rec => rec.fields.map(f => excelValue(f.v)));
+  // Comme Excel : une colonne contenant une date est élargie pour l'afficher entièrement.
+  const widths = Array.from({ length: cols }, (_, c) => vals.some(v => v[c] && v[c].date) ? 80 : 64);
+
+  const notes = [];
+  notes.push("Simulation d'un double-clic sur le fichier dans Excel (paramètres régionaux français) : colonnes de largeur par défaut, nombres et dates alignés à droite, texte qui déborde sur les cellules vides.");
+  if (!hasBom && (d.enc === "utf-8" || d.enc === "mixed")) notes.push("⚠ Le fichier n'a pas de BOM : Excel le lit en ANSI, les accents UTF-8 apparaissent donc cassés, comme ci-dessous.");
+  if (state.res.delim !== ";") notes.push(`⚠ Le séparateur du fichier est ${delimName(state.res.delim)} : Excel (FR) ne découpe que sur « ; », tout se retrouve donc dans la colonne A.`);
+  $("xlNote").innerHTML = notes.map(esc).join("<br>");
+
+  let h = `<div class="xl-bar"><div class="xl-name" id="xlName">A1</div><div class="xl-fx">fx</div><div class="xl-formula" id="xlFormula"></div></div>`;
+  h += `<div class="xl-scroll"><table class="xlgrid" style="width:${46 + widths.reduce((a, b) => a + b, 0)}px"><colgroup><col style="width:46px">${widths.map(w => `<col style="width:${w}px">`).join("")}</colgroup>`;
+  h += `<thead><tr><th class="rh"></th>`;
+  for (let c = 0; c < cols; c++) h += `<th data-xc="${c}">${colLetter(c)}</th>`;
+  h += "</tr></thead><tbody>";
+  const parts = [];
+  for (let r = 0; r < rows; r++) {
+    const rv = r < nRows ? vals[r] : [];
+    let tr = `<tr><th class="rh" data-xr="${r}">${r + 1}</th>`;
+    for (let c = 0; c < cols; c++) {
+      const x = rv[c];
+      if (!x || x.v === "") { tr += `<td data-xr="${r}" data-xc="${c}"></td>`; continue; }
+      const nextEmpty = !x.n && (!rv[c + 1] || rv[c + 1].v === "");
+      tr += `<td data-xr="${r}" data-xc="${c}" class="${x.n ? "n" : ""}${nextEmpty ? " ov" : ""}">${esc(x.v)}</td>`;
+    }
+    parts.push(tr + "</tr>");
+  }
+  h += parts.join("") + "</tbody></table></div>";
+  if (recs.length > nRows) h += `<div class="more" style="background:#fff">${nRows.toLocaleString("fr-FR")} / ${recs.length.toLocaleString("fr-FR")} lignes affichées · <button class="btn" id="btnXlMore">Afficher 1000 lignes de plus</button></div>`;
+  const sheet = (state.fileName.replace(/\.[^.]+$/, "") || "Feuil1").slice(0, 31);
+  h += `<div class="xl-tabs"><span class="xl-tab">${esc(sheet)}</span></div>`;
+  h += `<div class="xl-status"><span>Prêt</span><span>100 %</span></div>`;
+  $("xlWrap").innerHTML = h;
+  if ($("btnXlMore")) $("btnXlMore").onclick = () => { state.xlLimit += 1000; renderExcel(); };
+  selectXl(0, 0);
+}
+function selectXl(r, c) {
+  const w = $("xlWrap");
+  w.querySelectorAll(".sel, .on").forEach(e => e.classList.remove("sel", "on"));
+  const td = w.querySelector(`td[data-xr="${r}"][data-xc="${c}"]`);
+  if (td) td.classList.add("sel");
+  const ch = w.querySelector(`thead th[data-xc="${c}"]`), rh = w.querySelector(`th.rh[data-xr="${r}"]`);
+  if (ch) ch.classList.add("on");
+  if (rh) rh.classList.add("on");
+  const rec = state.xl.recs[r];
+  $("xlName").textContent = colLetter(c) + (r + 1);
+  $("xlFormula").textContent = rec && rec.fields[c] ? excelValue(rec.fields[c].v).v : "";
+}
+
 function renderAll() {
   renderCards();
   renderIssues();
   renderGrid();
   renderRaw();
+  renderExcel();
   $("fileLabel").textContent = state.fileName;
   $("drop").classList.add("hidden");
   $("view").classList.remove("hidden");
@@ -1193,7 +1317,7 @@ function load(bytes, name) {
     return;
   }
   $("dropError").classList.add("hidden");
-  state.bytes = bytes; state.fileName = name; state.limit = 1000; state.rawLimit = 1000; state.sel = null;
+  state.bytes = bytes; state.fileName = name; state.limit = 1000; state.rawLimit = 1000; state.xlLimit = 1000; state.sel = null;
   state.encOverride = "auto"; state.delimOverride = "auto";
   $("selEnc").value = "auto"; $("selDelim").value = "auto";
   closeInspector();
@@ -1258,6 +1382,10 @@ $("chkInvis").onchange = e => { state.showInvis = e.target.checked; renderGrid()
 $("btnExpAnsi").onclick = exportAnsi;
 $("btnExpUtf8").onclick = exportUtf8;
 $("inspClose").onclick = closeInspector;
+$("xlWrap").addEventListener("mousedown", e => {
+  const td = e.target.closest("td[data-xr]");
+  if (td) selectXl(+td.dataset.xr, +td.dataset.xc);
+});
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeInspector(); });
 
 $("issues").addEventListener("click", e => {
