@@ -259,6 +259,12 @@ table.xlgrid td.sel { outline: 2px solid #107c41; outline-offset: -2px; }
 .xl-tab { background: #fff; color: #107c41; font-weight: 700; padding: 5px 16px; border-bottom: 3px solid #107c41; }
 .xl-status { display: flex; justify-content: space-between; background: #f5f5f5; border-top: 1px solid #e1e1e1; padding: 3px 10px; font-size: 12px; color: #444; }
 
+/* Section 5 : texte brut */
+.txt-wrap { display: flex; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); overflow: auto; max-height: calc(100vh - 150px); }
+.txt-wrap pre { margin: 0; padding: 10px 12px; font-family: var(--mono); font-size: 13px; line-height: 1.55; white-space: pre; }
+.txt-gutter { color: var(--muted); text-align: right; background: var(--panel-2); border-right: 1px solid var(--line); user-select: none; position: sticky; left: 0; }
+.txt-body { flex: 1; }
+
 /* Section 3 : données brutes */
 .rawdata-wrap { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); overflow: auto; max-height: calc(100vh - 150px); }
 table.rawdata { table-layout: fixed; border-collapse: collapse; font-family: var(--mono); font-size: 13px; }
@@ -355,6 +361,12 @@ kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--line); 
     <summary class="sec-title"><span>4</span>Visuel classique d'Excel</summary>
     <p class="sec-sub" id="xlNote"></p>
     <div class="xl" id="xlWrap"></div>
+   </details>
+
+   <details class="sec">
+    <summary class="sec-title"><span>5</span>Format CSV brut</summary>
+    <p class="sec-sub">Le contenu texte du fichier tel quel, ligne par ligne, comme dans le Bloc-notes. <button class="btn" id="btnCopyTxt" style="margin-left:8px;padding:3px 10px">Copier</button></p>
+    <div class="txt-wrap" id="txtWrap"></div>
    </details>
   </section>
 </main>
@@ -1133,12 +1145,25 @@ function selectXl(r, c) {
   $("xlFormula").textContent = rec && rec.fields[c] ? excelValue(rec.fields[c].v).v : "";
 }
 
+/* Section 5 : texte brut du fichier, avec numéros de ligne */
+const TXT_MAX_LINES = 5000;
+function renderText() {
+  const lines = state.res.dec.text.split(/\r\n|\n|\r/);
+  if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
+  const shown = lines.slice(0, TXT_MAX_LINES);
+  const gutter = shown.map((_, i) => i + 1).join("\n");
+  let body = esc(shown.join("\n"));
+  if (lines.length > shown.length) body += `\n\n… ${(lines.length - shown.length).toLocaleString("fr-FR")} ligne(s) suivante(s) non affichée(s)`;
+  $("txtWrap").innerHTML = `<pre class="txt-gutter">${gutter}</pre><pre class="txt-body">${body}</pre>`;
+}
+
 function renderAll() {
   renderCards();
   renderIssues();
   renderGrid();
   renderRaw();
   renderExcel();
+  renderText();
   $("fileLabel").textContent = state.fileName;
   $("drop").classList.add("hidden");
   $("view").classList.remove("hidden");
@@ -1382,6 +1407,10 @@ $("chkInvis").onchange = e => { state.showInvis = e.target.checked; renderGrid()
 $("btnExpAnsi").onclick = exportAnsi;
 $("btnExpUtf8").onclick = exportUtf8;
 $("inspClose").onclick = closeInspector;
+$("btnCopyTxt").onclick = e => {
+  e.preventDefault();
+  navigator.clipboard.writeText(state.res.dec.text).then(() => toast("Contenu copié"), () => toast("Copie impossible"));
+};
 $("xlWrap").addEventListener("mousedown", e => {
   const td = e.target.closest("td[data-xr]");
   if (td) selectXl(+td.dataset.xr, +td.dataset.xc);
