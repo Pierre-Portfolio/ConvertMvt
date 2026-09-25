@@ -205,6 +205,11 @@ table.chars tr.nonascii td:first-child { font-weight: 700; }
   padding: 10px 16px; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,.3); z-index: 60; transition: opacity .3s;
 }
 .hidden { display: none !important; }
+.drop-error {
+  text-align: left; background: var(--err-bg); border: 1px solid var(--err); border-radius: 10px;
+  padding: 12px 14px; margin: 0 0 20px; line-height: 1.55; font-size: 13.5px;
+}
+.drop-error strong { color: var(--err); }
 
 /* Sections */
 .sec { margin-bottom: 36px; }
@@ -242,6 +247,7 @@ kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--line); 
     <p>La ligne 1 est lue comme l'en-tête, les suivantes comme les données.<br>
        Le fichier est analysé localement dans le navigateur (rien n'est envoyé).<br>
        Encodage, séparateurs en trop, colonnes décalées, accents cassés, espaces invisibles… tout est listé.</p>
+    <div class="drop-error hidden" id="dropError"></div>
     <div class="actions">
       <button class="btn primary" id="btnOpen2">Choisir un fichier…</button>
       <button class="btn" id="btnDemo2">Charger un exemple avec erreurs</button>
@@ -1141,7 +1147,43 @@ function toast(msg) {
 /* ---------------------------------------------------------------------------
  * Chargement
  * ------------------------------------------------------------------------- */
+// Fichiers binaires reconnus par leur signature : ce ne sont pas des CSV.
+function binaryKind(b, name) {
+  const sig = (...x) => x.every((v, i) => b[i] === v);
+  const ext = (name.match(/\.([^.]+)$/) || [])[1];
+  const e = ext ? ext.toLowerCase() : "";
+  if (sig(0x50, 0x4B, 0x03, 0x04) || sig(0x50, 0x4B, 0x05, 0x06)) {
+    if (e === "xlsx" || e === "xlsm") return "un classeur Excel (.xlsx)";
+    if (e === "ods") return "un classeur LibreOffice (.ods)";
+    if (e === "docx") return "un document Word (.docx)";
+    return "une archive ZIP";
+  }
+  if (sig(0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1)) return "un ancien classeur Excel (.xls)";
+  if (sig(0x25, 0x50, 0x44, 0x46)) return "un PDF";
+  if (sig(0x89, 0x50, 0x4E, 0x47) || sig(0xFF, 0xD8, 0xFF)) return "une image";
+  if (["xlsx", "xlsm", "xls", "ods", "xlsb"].includes(e)) return `un classeur (.${e})`;
+  return null;
+}
+function showDropError(msg) {
+  state.bytes = null; state.res = null;
+  closeInspector();
+  $("view").classList.add("hidden");
+  $("drop").classList.remove("hidden");
+  $("fileLabel").textContent = "";
+  $("dropError").innerHTML = msg;
+  $("dropError").classList.remove("hidden");
+}
+
 function load(bytes, name) {
+  const kind = binaryKind(bytes, name);
+  if (kind) {
+    showDropError(`<strong>« ${esc(name)} » n'est pas un fichier CSV : c'est ${kind}.</strong><br>
+      Ce type de fichier est compressé ou binaire, son contenu ne peut pas être lu comme du texte.<br>
+      Dans Excel : <em>Fichier › Enregistrer sous › « CSV (séparateur : point-virgule) (*.csv) »</em> — ce format est enregistré en ANSI.
+      Ouvrez ensuite le fichier .csv obtenu.`);
+    return;
+  }
+  $("dropError").classList.add("hidden");
   state.bytes = bytes; state.fileName = name; state.limit = 1000; state.rawLimit = 1000; state.sel = null;
   state.encOverride = "auto"; state.delimOverride = "auto";
   $("selEnc").value = "auto"; $("selDelim").value = "auto";
