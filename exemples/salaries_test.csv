@@ -1,0 +1,51 @@
+Matricule;Nom;Prénom;Date de naissance;Date d'embauche;Service;Poste;Type de contrat;Salaire brut annuel (€);Email
+EMP0001;THOMAS;Clémence;04/05/1977;30/09/2002;Comptabilité;Assistant comptable;CDI;27410,00;clemence.thomas@entreprise-fictive.fr
+EMP0002;MERCIER;Jules;28/06/1991;23/02/2016;Logistique;Magasinier;CDI;24060,00;jules.mercier@entreprise-fictive.fr
+EMP0003;BERTRAND;Gabriel;06/03/1990;23/05/2012;Logistique;Magasinier;CDD;38370,00;gabriel.bertrand@entreprise-fictive.fr
+EMP0004;GARCIA;Gabriel;23/04/2001;27/04/2021;Logistique;Responsable entrepôt;CDD;44730,00;gabriel.garcia@entreprise-fictive.fr
+EMP0005;LEROY;Jade;02/04/1999;08/01/2023;Ressources humaines;Chargé RH;CDI;25290,00;jade.leroy@entreprise-fictive.fr
+EMP0006;LAURENT;Raphaël;16/03/2001;25/08/2021;Logistique;Responsable entrepôt;CDI;42110,00;raphael.laurent@entreprise-fictive.fr
+EMP0007;DUBOIS;Zoé;16/03/2002;21/03/2026;Logistique;Responsable entrepôt;CDI;40090,00;zoe.dubois@entreprise-fictive.fr
+EMP0008;GIRARD;Lucas;31/07/1968;11/08/2002;Ressources humaines;Responsable paie;CDI;41280,00;lucas.girard@entreprise-fictive.fr
+EMP0009;MOREL;Émilie;10/08/1981;26/07/2005;Informatique;Développeur;CDI;30180,00;emilie.morel@entreprise-fictive.fr
+EMP0010;MOREL;Noé;16/09/1997;30/05/2020;Ressources humaines;DRH;CDI;68220,00;noe.morel@entreprise-fictive.fr
+EMP0011;ANDRÉ;Clémence;17/09/1995;21/04/2019;Logistique;Magasinier;CDI;41270,00;clemence.andre@entreprise-fictive.fr
+EMP0012;BERNARD;Gabriel;04/01/1977;28/09/2000;Informatique;Administrateur système;CDI;31450,00;gabriel.bernard@entreprise-fictive.fr
+EMP0013;MOREL;Manon;02/11/1993;24/12/2018;Commercial;Responsable grands comptes;CDI;56130,00;manon.morel@entreprise-fictive.fr
+EMP0014;ROUX;Maël;06/07/1998;20/04/2023;Logistique;Responsable entrepôt;CDI;43050,00;mael.roux@entreprise-fictive.fr
+EMP0015;ROBERT;Gabriel;29/01/1969;11/07/2000;Logistique;Responsable entrepôt;CDI;39470,00;gabriel.robert@entreprise-fictive.fr
+EMP0016;MICHEL;Jules;06/04/1982;12/07/2006;Logistique;Magasinier;CDI;38480,00;jules.michel@entreprise-fictive.fr
+EMP0017;MARTIN;Mathéo;20/02/1970;28/12/2002;Direction;Contrôleur de gestion;CDI;51770,00;matheo.martin@entreprise-fictive.fr
+EMP0018;MICHEL;Arthur;23/02/1965;14/12/2002;Ressources humaines;Responsable paie;CDI;46510,00;arthur.michel@entreprise-fictive.fr
+EMP0019;MOREAU;Clémence;26/04/1992;24/06/2014;Direction;Contrôleur de gestion;CDI;49370,00;clemence.moreau@entreprise-fictive.fr
+EMP0020;DUPONT;Mathéo;14/11/1991;20/06/2015;Logistique;Magasinier;CDI;30480,00;matheo.dupont@entreprise-fictive.fr
+EMP0021;DURAND;Arthur;14/06/1990;19/04/2011;Comptabilité;Comptable;CDI;28400,00;arthur.durand@entreprise-fictive.fr
+EMP0022;ROUX;Élodie;06/08/1994;29/11/2019;Ressources humaines;Chargé RH;CDD;32290,00;elodie.roux@entreprise-fictive.fr
+EMP0023;ROUX;Manon;09/01/1974;30/06/2003;Direction;Contrôleur de gestion;CDI;54960,00;manon.roux@entreprise-fictive.fr
+EMP0024;BERTRAND;Émilie;14/02/1976;09/07/2002;Commercial;Commercial terrain;CDI;26480,00;emilie.bertrand@entreprise-fictive.fr
+EMP0025;DURAND;Océane;02/10/1996;30/05/2017;Comptabilité;Comptable;CDI;27030,00;oceane.durand@entreprise-fictive.fr
+EMP0026;DUBOIS;Jade;29/06/1977;11/06/2005;Logistique;Magasinier;Alternance;29490,00;jade.dubois@entreprise-fictive.fr
+EMP0027;DAVID;Gabriel;26/03/1969;01/02/2001;Commercial;Commercial terrain;CDD;35910,00;gabriel.david@entreprise-fictive.fr
+EMP0028;GARCIA;Théo;17/03/1995;07/04/2016;Direction;Directeur général;CDI;94280,00;theo.garcia@entreprise-fictive.fr
+EMP0029;DURAND;Hugo;21/01/1989;12/01/2014;Ressources humaines;Chargé RH;CDI;27890,00;hugo.durand@entreprise-fictive.fr
+EMP0030;DURAND;Émilie;31/03/2001;06/04/2022;Comptabilité;Chef comptable;CDI;53940,00;emilie.durand@entreprise-fictive.fr
+EMP0031;DUPONT;Léa;26/03/1983;10/08/2008;Ressources humaines;Chargé RH;CDD;31630,00;lea.dupont@entreprise-fictive.fr
+EMP0032;RICHARD;Lucas;07/07/1982;21/06/2005;Commercial;Commercial terrain;Alternance;42450,00;lucas.richard@entreprise-fictive.fr
+EMP0033;MICHEL;Arthur;21/02/2000;17/07/2025;Direction;Contrôleur de gestion;CDI;47710,00;arthur.michel@entreprise-fictive.fr
+EMP0034;VINCENT;Lucas;26/09/1967;08/07/2003;Direction;Contrôleur de gestion;Alternance;46450,00;lucas.vincent@entreprise-fictive.fr
+EMP0035;BERTRAND;Sarah;13/10/1987;24/08/2008;Ressources humaines;Chargé RH;CDI;37180,00;sarah.bertrand@entreprise-fictive.fr
+EMP0036;DURAND;Jules;22/07/1990;04/04/2013;Commercial;Commercial terrain;CDI;35950,00;jules.durand@entreprise-fictive.fr
+EMP0037;GIRARD;Théo;14/06/1988;18/12/2011;Logistique;Préparateur de commandes;CDI;38680,00;theo.girard@entreprise-fictive.fr
+EMP0038;LEROY;Gabriel;17/02/1995;13/06/2018;Commercial;Commercial terrain;CDI;32240,00;gabriel.leroy@entreprise-fictive.fr
+EMP0039;GARCIA;Camille;27/06/1969;27/10/2000;Logistique;Préparateur de commandes;CDI;32580,00;camille.garcia@entreprise-fictive.fr
+EMP0040;LAURENT;Chloé;30/07/1981;10/09/2004;Comptabilité;Comptable;CDI;27970,00;chloe.laurent@entreprise-fictive.fr
+EMP0041;MOREL;Noé;17/12/1994;10/04/2018;Logistique;Magasinier;CDI;41580,00;noe.morel@entreprise-fictive.fr
+EMP0042;THOMAS;Inès;26/10/1989;29/06/2011;Comptabilité;Assistant comptable;CDI;29120,00;ines.thomas@entreprise-fictive.fr
+EMP0043;SIMON;Anaïs;14/06/1993;17/05/2016;Ressources humaines;DRH;CDI;68540,00;anais.simon@entreprise-fictive.fr
+EMP0044;MOREL;Léa;24/12/1966;15/01/2000;Commercial;Responsable grands comptes;CDI;61410,00;lea.morel@entreprise-fictive.fr
+EMP0045;MERCIER;Louis;27/08/1996;18/05/2021;Commercial;Assistant commercial;CDI;31340,00;louis.mercier@entreprise-fictive.fr
+EMP0046;ROBERT;Anaïs;10/06/2002;30/06/2026;Logistique;Magasinier;CDD;35680,00;anais.robert@entreprise-fictive.fr
+EMP0047;BERNARD;Chloé;17/09/2000;11/02/2021;Informatique;Administrateur système;CDI;39380,00;chloe.bernard@entreprise-fictive.fr
+EMP0048;THOMAS;Jules;26/03/1983;23/11/2004;Informatique;Chef de projet;CDI;59810,00;jules.thomas@entreprise-fictive.fr
+EMP0049;MICHEL;Louis;15/01/1998;22/09/2021;Comptabilité;Comptable;CDI;41330,00;louis.michel@entreprise-fictive.fr
+EMP0050;RICHARD;Inès;28/02/1982;09/07/2002;Direction;Directeur général;CDI;95450,00;ines.richard@entreprise-fictive.fr
