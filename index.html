@@ -212,8 +212,17 @@ table.chars tr.nonascii td:first-child { font-weight: 700; }
 .drop-error strong { color: var(--err); }
 
 /* Sections */
-.sec { margin-bottom: 36px; }
-.sec-title { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 650; margin: 0 0 14px; }
+.sec { margin-bottom: 16px; }
+.sec-title {
+  display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 650; margin: 0;
+  cursor: pointer; list-style: none; user-select: none; padding: 10px 14px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+}
+.sec-title::-webkit-details-marker { display: none; }
+.sec-title::after { content: "▸"; margin-left: auto; color: var(--muted); font-size: 14px; transition: transform .15s; }
+.sec[open] > .sec-title { margin-bottom: 14px; }
+.sec[open] > .sec-title::after { transform: rotate(90deg); }
+.sec-title:hover { border-color: var(--accent); }
 .sec-title span {
   display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 8px;
   background: var(--accent); color: #fff; font-size: 14px;
@@ -255,8 +264,8 @@ kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--line); 
   </section>
 
   <section id="view" class="hidden">
-   <section class="sec">
-    <h2 class="sec-title"><span>1</span>Résumé</h2>
+   <details class="sec">
+    <summary class="sec-title"><span>1</span>Résumé</summary>
     <div class="cards" id="cards"></div>
 
     <div class="toolbar">
@@ -294,23 +303,23 @@ kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--line); 
       <label title="Convertit toutes les fins de ligne en CRLF (Windows) lors de l'export"><input type="checkbox" id="chkCrlf" checked> CRLF à l'export</label>
     </div>
 
-   </section>
+   </details>
 
-   <section class="sec">
-    <h2 class="sec-title"><span>2</span>Détails</h2>
+   <details class="sec">
+    <summary class="sec-title"><span>2</span>Détails</summary>
     <details class="issues" id="issuesBox">
       <summary id="issuesSummary">Anomalies</summary>
       <div id="issues"></div>
     </details>
 
     <div class="grid-wrap" id="gridWrap"></div>
-   </section>
+   </details>
 
-   <section class="sec">
-    <h2 class="sec-title"><span>3</span>Données brutes</h2>
+   <details class="sec">
+    <summary class="sec-title"><span>3</span>Données brutes</summary>
     <p class="sec-sub">Valeurs telles qu'elles sont dans le fichier, sans surlignage. Colonnes de largeur identique, retour à la ligne au-delà de 50 caractères.</p>
     <div class="rawdata-wrap" id="rawWrap"></div>
-   </section>
+   </details>
   </section>
 </main>
 
