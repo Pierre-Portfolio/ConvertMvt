@@ -205,6 +205,24 @@ table.chars tr.nonascii td:first-child { font-weight: 700; }
   padding: 10px 16px; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,.3); z-index: 60; transition: opacity .3s;
 }
 .hidden { display: none !important; }
+
+/* Sections */
+.sec { margin-bottom: 36px; }
+.sec-title { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 650; margin: 0 0 14px; }
+.sec-title span {
+  display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 8px;
+  background: var(--accent); color: #fff; font-size: 14px;
+}
+.sec-sub { color: var(--muted); font-size: 13px; margin: -6px 0 12px; }
+
+/* Section 3 : données brutes */
+.rawdata-wrap { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); overflow: auto; max-height: calc(100vh - 150px); }
+table.rawdata { table-layout: fixed; border-collapse: collapse; font-family: var(--mono); font-size: 13px; }
+table.rawdata th, table.rawdata td {
+  text-align: left; vertical-align: top; padding: 6px 10px; border: 1px solid var(--line);
+  white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.45;
+}
+table.rawdata thead th { position: sticky; top: 0; background: var(--panel-2); font-weight: 700; z-index: 1; box-shadow: 0 1px 0 var(--line); }
 kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
 </style>
 </head>
@@ -231,6 +249,8 @@ kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--line); 
   </section>
 
   <section id="view" class="hidden">
+   <section class="sec">
+    <h2 class="sec-title"><span>1</span>Résumé</h2>
     <div class="cards" id="cards"></div>
 
     <div class="toolbar">
@@ -268,12 +288,23 @@ kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--line); 
       <label title="Convertit toutes les fins de ligne en CRLF (Windows) lors de l'export"><input type="checkbox" id="chkCrlf" checked> CRLF à l'export</label>
     </div>
 
+   </section>
+
+   <section class="sec">
+    <h2 class="sec-title"><span>2</span>Détails</h2>
     <details class="issues" id="issuesBox" open>
       <summary id="issuesSummary">Anomalies</summary>
       <div id="issues"></div>
     </details>
 
     <div class="grid-wrap" id="gridWrap"></div>
+   </section>
+
+   <section class="sec">
+    <h2 class="sec-title"><span>3</span>Données brutes</h2>
+    <p class="sec-sub">Valeurs telles qu'elles sont dans le fichier, sans surlignage. Colonnes de largeur identique, retour à la ligne au-delà de 50 caractères.</p>
+    <div class="rawdata-wrap" id="rawWrap"></div>
+   </section>
   </section>
 </main>
 
@@ -403,7 +434,7 @@ const state = {
   bytes: null, fileName: "",
   expected: "ansi", encOverride: "auto", delimOverride: "auto",
   search: "", onlyIssues: false, showInvis: false,
-  limit: 1000, res: null, sel: null,
+  limit: 1000, rawLimit: 1000, res: null, sel: null,
 };
 
 const $ = id => document.getElementById(id);
@@ -939,10 +970,36 @@ function renderGrid() {
   if (state.sel) markSel();
 }
 
+/* Section 3 : tableau brut, colonnes de largeur égale (max 50 caractères puis retour à la ligne) */
+function renderRaw() {
+  const { recs, header, maxCols } = state.res;
+  const rows = [];
+  for (let r = 1; r < recs.length; r++) if (!recs[r].empty) rows.push(recs[r]);
+  const shown = rows.slice(0, state.rawLimit);
+  let w = 8;
+  [recs[0], ...shown].forEach(rec => rec && rec.fields.forEach(f => { w = Math.max(w, ...f.v.split(/\r\n|\r|\n/).map(l => l.length)); }));
+  w = Math.min(w, 50);
+  const colW = `calc(${w}ch + 22px)`;
+  let h = `<table class="rawdata" style="width:calc(${maxCols} * (${w}ch + 22px))"><colgroup>${`<col style="width:${colW}">`.repeat(maxCols)}</colgroup><thead><tr>`;
+  for (let c = 0; c < maxCols; c++) h += `<th>${esc(header[c] ? header[c].v : "")}</th>`;
+  h += "</tr></thead><tbody>";
+  h += shown.map(rec => {
+    let tr = "<tr>";
+    for (let c = 0; c < maxCols; c++) tr += `<td>${rec.fields[c] ? esc(rec.fields[c].v) : ""}</td>`;
+    return tr + "</tr>";
+  }).join("");
+  h += "</tbody></table>";
+  if (rows.length > shown.length) h += `<div class="more">${shown.length.toLocaleString("fr-FR")} / ${rows.length.toLocaleString("fr-FR")} lignes affichées · <button class="btn" id="btnRawMore">Afficher 1000 lignes de plus</button> <button class="btn" id="btnRawAll">Tout afficher</button></div>`;
+  $("rawWrap").innerHTML = h;
+  if ($("btnRawMore")) $("btnRawMore").onclick = () => { state.rawLimit += 1000; renderRaw(); };
+  if ($("btnRawAll")) $("btnRawAll").onclick = () => { state.rawLimit = Infinity; renderRaw(); };
+}
+
 function renderAll() {
   renderCards();
   renderIssues();
   renderGrid();
+  renderRaw();
   $("fileLabel").textContent = state.fileName;
   $("drop").classList.add("hidden");
   $("view").classList.remove("hidden");
@@ -1085,7 +1142,7 @@ function toast(msg) {
  * Chargement
  * ------------------------------------------------------------------------- */
 function load(bytes, name) {
-  state.bytes = bytes; state.fileName = name; state.limit = 1000; state.sel = null;
+  state.bytes = bytes; state.fileName = name; state.limit = 1000; state.rawLimit = 1000; state.sel = null;
   state.encOverride = "auto"; state.delimOverride = "auto";
   $("selEnc").value = "auto"; $("selDelim").value = "auto";
   closeInspector();
